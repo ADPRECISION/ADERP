@@ -563,7 +563,6 @@ tbody tr:hover td{background:var(--bg3)}
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <div class="tabs" id="order-tabs" style="flex:1">
             <div class="tab active" onclick="setOrderTab('all',this)">All <span class="tab-count" id="tc-all">0</span></div>
-            <div class="tab" onclick="setOrderTab('Quotation',this)">Quotation <span class="tab-count" id="tc-quot">0</span></div>
             <div class="tab" onclick="setOrderTab('Active',this)">Active <span class="tab-count" id="tc-act">0</span></div>
             <div class="tab" onclick="setOrderTab('QC Hold',this)">QC Hold <span class="tab-count" id="tc-qch">0</span></div>
             <div class="tab" onclick="setOrderTab('Complete',this)">Complete <span class="tab-count" id="tc-comp">0</span></div>
@@ -1363,7 +1362,7 @@ Tel: 01234 567000</textarea></div>
   <div class="modal-content">
     <div class="fg"><label>New status</label>
       <select id="status-select" onchange="document.getElementById('status-hold-row').style.display=this.value==='On Hold'?'block':'none'">
-        <option>Quotation</option><option>Active</option><option>On Hold</option><option>QC Hold</option><option>Complete</option>
+        <option>Active</option><option>On Hold</option><option>QC Hold</option><option>Complete</option>
       </select>
     </div>
     <div id="status-hold-row" style="display:none">
@@ -1864,6 +1863,8 @@ Tel: 01234 567000</textarea></div>
       <div class="fg"><label>Labour rate (£/hr)</label><input id="eu-rate" type="number" min="0"/></div>
       <div class="fg"><label>Annual holiday allowance (days)</label><input id="eu-holiday-allowance" type="number" min="0" value="28"/></div>
       <div class="fg"><label>New PIN (leave blank to keep current)</label><input id="eu-pin" type="password" maxlength="6" placeholder="Enter new PIN…"/></div>
+      <div class="fg full"><label><input id="eu-can-signoff" type="checkbox"/> Qualified to sign off first-offs</label></div>
+      <div class="fg full"><label><input id="eu-can-ncr" type="checkbox"/> Authorised to raise NCRs</label></div>
     </div>
   </div>
   <div class="modal-footer"><button onclick="closeModal('modal-edit-user')">Cancel</button><button class="primary" onclick="applyEditUser()">Save changes</button></div>
@@ -2556,7 +2557,6 @@ function initDB() {
   ];
   db.pm = [
     {id:'PM-001',task:'Spindle oil check & top up',machine:'Daewoo Puma 230M',assigned:'Slater Jay',freq:'Weekly',due:'2026-06-16',lastDone:'2026-06-09',lastBy:'Slater Jay',status:'Scheduled',notes:'',instructions:'Check oil level with dipstick. Top up with ISO 68 way oil if below min mark.'},
-    {id:'PM-002',task:'Coolant concentration check',machine:'All',assigned:'Rob Thurlow',freq:'Weekly',due:'2026-06-13',lastDone:'2026-06-06',lastBy:'Rob Thurlow',status:'Due',notes:'',instructions:'Use refractometer. Check against the target range for the coolant product on each machine (see Machine Register for product and range). Top up concentrate as required.'},
     {id:'PM-003',task:'Way lube check — Hardinge 1000 XP3',machine:'Hardinge 1000 XP3',assigned:'Rob Thurlow',freq:'Monthly',due:'2026-06-30',lastDone:'2026-05-31',lastBy:'Rob Thurlow',status:'Scheduled',notes:'',instructions:''},
     {id:'PM-004',task:'Full service & geometry check',machine:'Bridgeport VMC 800',assigned:'Rob Thurlow',freq:'6-monthly',due:'2026-09-01',lastDone:'2026-03-01',lastBy:'Rob Thurlow',status:'Scheduled',notes:'',instructions:'Book Haas service engineer. Check axis geometry, spindle run-out, lubrication.'},
     {id:'PM-005',task:'Gauge calibration review',machine:'All',assigned:'Jamie Easton',freq:'Monthly',due:'2026-06-15',lastDone:'2026-05-15',lastBy:'Jamie Easton',status:'Due',notes:'',instructions:'Review gauge register for upcoming calibration due dates. Book recalibration with approved supplier where required.'},
@@ -2603,7 +2603,7 @@ function initDB() {
 // ═══════════════════ HELPERS ═══════════════════
 function badge(txt,cls){return `<span class="badge ${cls}">${txt}</span>`;}
 function statusBadge(s){
-  const m={'Active':'b-blue','QC Hold':'b-amber','Complete':'b-green','Quotation':'b-gray',
+  const m={'Active':'b-blue','QC Hold':'b-amber','Complete':'b-green',
     'Received':'b-green','Sent':'b-blue','Draft':'b-gray','Partial':'b-amber',
     'Open':'b-red','Closed':'b-green','Approved':'b-green','Conditional':'b-amber',
     'Pending approval':'b-gray','Suspended':'b-red','Dispatched':'b-green'};
@@ -3826,7 +3826,7 @@ function renderDash(){
   // Pending holiday approvals for admin
   if(isAdmin()){
     const pending=(db.holidays||[]).filter(h=>h.status==='Pending');
-    if(pending.length) todos.push({icon:'🌴',text:`${pending.length} holiday request${pending.length>1?'s':''} awaiting approval`,sub:'Click to review',color:'var(--amber)',click:`navigate('holidays')`});
+    if(pending.length) todos.push({icon:'🌴',text:`${pending.length} holiday request${pending.length>1?'s':''} awaiting approval`,sub:'Click to review',color:'var(--amber)',click:`navToPendingHolidays()`});
   }
   // Unread DMs
   const unread=(db.messages||[]).filter(m=>m.to===name&&!m.read).length;
@@ -3861,12 +3861,12 @@ function renderDash(){
       <div class="metric-lbl">Works orders</div><div class="metric-sub">${activeWO} active</div>
       <div style="font-size:9px;color:var(--accent);margin-top:4px;font-family:var(--mono)">click to open →</div>
     </div>
-    <div class="metric m-${lowStock>0?'red':'green'}" style="cursor:pointer" onclick="navigate('material');setTimeout(()=>setStockCategory('general',document.querySelector('#stock-cat-tabs .tab:nth-child(2)')),50)" title="Go to Stock Register">
+    <div class="metric m-${lowStock>0?'red':'green'}" style="cursor:pointer" onclick="navToLowStockTab()" title="Go to Stock Register">
       <div class="metric-trend">▣</div><div class="metric-val" style="color:${lowStock>0?'var(--red)':'inherit'}">${lowStock}</div>
       <div class="metric-lbl">Low stock items</div><div class="metric-sub">${autoPOItems.length} need auto-PO</div>
       <div style="font-size:9px;color:var(--${lowStock>0?'red':'green'});margin-top:4px;font-family:var(--mono)">click to open →</div>
     </div>
-    <div class="metric m-${openNCR>0?'amber':'green'}" style="cursor:pointer" onclick="navigate('ncr')" title="Go to NCR / Quality">
+    <div class="metric m-${openNCR>0?'amber':'green'}" style="cursor:pointer" onclick="navToOpenNCRs()" title="Go to NCR / Quality">
       <div class="metric-trend">⚠</div><div class="metric-val" style="color:${openNCR>0?'var(--amber)':'inherit'}">${openNCR}</div>
       <div class="metric-lbl">Open NCRs</div><div class="metric-sub">${openNCR>0?'Action required':'All clear'}</div>
       <div style="font-size:9px;color:var(--${openNCR>0?'amber':'green'});margin-top:4px;font-family:var(--mono)">click to open →</div>
@@ -3888,7 +3888,7 @@ function renderDash(){
       <div style="font-size:9px;color:var(--purple);margin-top:4px;font-family:var(--mono)">click to open →</div>
     </div>`;
 
-  const activeOrders=db.orders.filter(o=>o.status!=='Complete'&&o.status!=='Quotation');
+  const activeOrders=db.orders.filter(o=>o.status!=='Complete');
   const woCnt=document.getElementById('dash-wo-count');
   if(activeOrders.length){woCnt.textContent=activeOrders.length;woCnt.style.display='inline-block';}
   else woCnt.style.display='none';
@@ -3935,7 +3935,7 @@ function renderDash(){
     '<div style="color:var(--txt3);font-size:12px">Nobody is clocked in</div>';
 
   document.getElementById('dash-ncrs').innerHTML=db.ncrs.filter(n=>n.status==='Open').map(n=>`
-    <div style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="navigate('ncr')">
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="navToOpenNCRs()">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span style="font-family:var(--mono);color:var(--red);font-size:11px">${n.id}</span>
         ${badge(n.type,'b-amber')}
@@ -4091,8 +4091,8 @@ function renderOrders(){
   if(!db.deletedOrders) db.deletedOrders=[];
 
   // Update tab counts
-  ['all','Quotation','Active','QC Hold','Complete'].forEach(s=>{
-    const id={'all':'tc-all','Quotation':'tc-quot','Active':'tc-act','QC Hold':'tc-qch','Complete':'tc-comp'}[s];
+  ['all','Active','QC Hold','Complete'].forEach(s=>{
+    const id={'all':'tc-all','Active':'tc-act','QC Hold':'tc-qch','Complete':'tc-comp'}[s];
     const el=document.getElementById(id);
     if(el) el.textContent=s==='all'?db.orders.length:db.orders.filter(o=>o.status===s).length;
   });
@@ -4437,6 +4437,7 @@ function viewWO(id){
   const matCost=(mat?mat.cost:0)*o.matqty;
   const total=labourCost+matCost;
   const variance=o.quoted?o.quoted-total:null;
+  const activeLog=db.timeLogs.find(t=>t.wo===id&&!t.end);
 
   // Gauge status summary
   const gaugeHtml=(o.gauges&&o.gauges.length)?o.gauges.map(gid=>{
@@ -4453,7 +4454,7 @@ function viewWO(id){
         <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:3px">${o.id}</div>
         <h3>${o.part}</h3>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">${statusBadge(o.status)}${o.priority==='Urgent'?badge('URGENT','b-red'):''}<button class="ghost" onclick="closeModal('modal-view-wo')" data-tip="Close this window">✕</button></div>
+      <div style="display:flex;gap:6px;align-items:center">${activeLog?`<span style="font-size:10px;font-family:var(--mono);color:var(--green);display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;display:inline-block"></span>IN PROGRESS — ${activeLog.user}</span>`:''}${statusBadge(o.status)}${o.priority==='Urgent'?badge('URGENT','b-red'):''}<button class="ghost" onclick="closeModal('modal-view-wo')" data-tip="Close this window">✕</button></div>
     </div>
     <div class="modal-content" style="max-height:75vh;overflow-y:auto">
       ${o.status==='On Hold'&&o.holdReason?`<div class="alert alert-warn" style="margin-bottom:12px">🔒 <strong>On Hold:</strong> ${o.holdReason}</div>`:''}
@@ -4465,6 +4466,7 @@ function viewWO(id){
         <div><span style="color:var(--txt3)">Drawing:</span> <span style="font-family:var(--mono)">${o.pn||'—'} Rev ${o.rev||'A'}</span></div>
         <div><span style="color:var(--txt3)">Due:</span> <span style="font-family:var(--mono)">${o.due||'—'}</span></div>
         <div><span style="color:var(--txt3)">Material:</span> ${o.mat||'—'}</div>
+        <div><span style="color:var(--txt3)">Material PO#:</span> ${o.matpo?`<a href="#" onclick="closeModal('modal-view-wo');viewPOById('${o.matpo}');return false" style="color:var(--accent)">${o.matpo}</a>`:'—'}</div>
         <div><span style="color:var(--txt3)">Assigned:</span> ${o.assigned||'—'}</div>
       </div>
       ${o.notes?`<div class="alert alert-warn" style="margin-bottom:10px">⚠ ${o.notes}</div>`:''}
@@ -4477,15 +4479,16 @@ function viewWO(id){
       <div style="margin-bottom:14px">
         ${o.ops.map((op,i)=>{
           const isLocked=op.type==='dn';
+          const isCurrent=activeLog&&activeLog.op===op.name;
           const needsFirstOff=(op.type==='turn'||op.type==='mill')&&op.done&&!op.firstOffSignedBy;
           const prevInspDone=op.type==='dn'?o.ops.filter(x=>x.type==='inspect').every(x=>x.done&&x.firstOffSignedBy):true;
           const canComplete=!op.done&&!isLocked&&(op.type!=='dn')&&isAdmin();
           const opColor=OP_COLOURS[op.type]||'var(--border3)';
-          return `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:${op.done?'var(--bg3)':'var(--bg4)'};border-radius:var(--r);border-left:3px solid ${op.done?'var(--green)':opColor};margin-bottom:4px">
-            <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--mono);font-weight:600;flex-shrink:0;background:${op.done?'var(--green-dim)':'var(--bg5)'};border:1px solid ${op.done?'var(--green)':'var(--border3)'};color:${op.done?'var(--green)':'var(--txt3)'}">${op.done?'✓':i+1}</div>
+          return `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:${isCurrent?'#071a0e':op.done?'var(--bg3)':'var(--bg4)'};border-radius:var(--r);border-left:3px solid ${op.done?'var(--green)':isCurrent?'var(--green)':opColor};margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--mono);font-weight:600;flex-shrink:0;background:${op.done?'var(--green-dim)':isCurrent?'#071a0e':'var(--bg5)'};border:1px solid ${op.done?'var(--green)':isCurrent?'var(--green)':'var(--border3)'};color:${op.done?'var(--green)':isCurrent?'var(--green)':'var(--txt3)'}">${op.done?'✓':isCurrent?'●':i+1}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-family:var(--mono);font-size:11.5px;font-weight:600">${op.name}</div>
-              ${op.done?`<div style="font-size:10px;color:var(--green)">✓ ${op.by} · ${op.ts}</div>`:'<div style="font-size:10px;color:var(--txt3)">Pending</div>'}
+              <div style="font-family:var(--mono);font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:6px">${op.name}${isCurrent?`<span style="font-size:9px;background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:3px;padding:1px 6px;font-family:var(--mono)">IN PROGRESS</span>`:''}</div>
+              ${op.done?`<div style="font-size:10px;color:var(--green)">✓ ${op.by} · ${op.ts}</div>`:isCurrent?`<div style="font-size:10px;color:var(--green)">⏱ ${activeLog.user} clocked in</div>`:'<div style="font-size:10px;color:var(--txt3)">Pending</div>'}
               ${needsFirstOff?`<div style="font-size:10px;color:var(--amber)">⚠ First-off sign-off required by a different operator</div>`:''}
               ${op.firstOffSignedBy?`<div style="font-size:10px;color:var(--accent)">1st-off signed by: ${op.firstOffSignedBy}</div>`:''}
             </div>
@@ -5120,14 +5123,15 @@ function clockStartActivity(woId, opIdx, type){
 
   // Get machines for this cell
   const cell = getWOCell(o).toLowerCase();
-  const authMachines = (curUser.machines && curUser.machines.length)
-    ? (db.machines||[]).filter(m=>curUser.machines.includes(m.name))
-    : (db.machines||[]).filter(m=>{
-        if(cell==='turning') return m.cell==='Turning';
-        if(cell==='milling') return m.cell==='Milling';
-        if(cell==='both') return m.cell==='Turning'||m.cell==='Milling';
-        return true;
-      });
+  const authMachines = (db.machines||[]).filter(m=>{
+    let cellMatch=true;
+    if(cell==='turning') cellMatch=m.cell==='Turning';
+    else if(cell==='milling') cellMatch=m.cell==='Milling';
+    else if(cell==='both') cellMatch=(m.cell==='Turning'||m.cell==='Milling');
+    if(!cellMatch) return false;
+    if(curUser.machines && curUser.machines.length) return curUser.machines.includes(m.name);
+    return true;
+  });
 
   if(!authMachines.length){ doClockIn(woId, opIdx, type, ''); return; }
 
@@ -5927,6 +5931,26 @@ function setStockCategory(cat, el){
   else if(cat==='spares') renderSpares();
 }
 
+function navToLowStockTab(){
+  const lowToolingCount=db.stock.filter(s=>s.qty<=s.safety&&TOOLING_STOCK_CATS.includes(s.cat)).length;
+  const lowGeneralCount=db.stock.filter(s=>s.qty<=s.safety&&!TOOLING_STOCK_CATS.includes(s.cat)).length;
+  const cat=lowToolingCount>lowGeneralCount?'tooling':'general';
+  navigate('material');
+  setTimeout(()=>setStockCategory(cat,document.querySelector(`#stock-cat-tabs .tab:nth-child(${cat==='tooling'?2:3})`)),50);
+}
+
+function navToOpenNCRs(){
+  navigate('ncr');
+  const sf=document.getElementById('ncr-status-filter');
+  if(sf){ sf.value='Open'; renderNCRs(); }
+}
+
+function navToPendingHolidays(){
+  navigate('holidays');
+  const tab=[...document.querySelectorAll('#hol-tabs .tab')].find(t=>t.textContent.trim().startsWith('Pending'));
+  if(tab) setHolTab('Pending',tab);
+}
+
 function renderStockPage(){
   const tabIndex={material:1,tooling:2,general:3,spares:4}[stockCategory]||1;
   setStockCategory(stockCategory, document.querySelector(`#stock-cat-tabs .tab:nth-child(${tabIndex})`));
@@ -5950,7 +5974,7 @@ function renderMaterial(){
       <td class="td-mono td-muted" style="font-size:10.5px">${m.size}</td>
       <td>${badge(m.qty+' '+m.unit,m.qty<=1?'b-red':m.qty<=3?'b-amber':'b-green')}</td>
       <td class="td-mono td-muted">${m.loc}</td>
-      <td class="td-mono" style="color:var(--accent);font-size:10.5px">${m.po||'—'}</td>
+      <td class="td-mono" style="font-size:10.5px">${m.po?`<a href="#" onclick="viewPOById('${m.po}');return false" style="color:var(--accent)">${m.po}</a>`:'—'}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.alloc}</td>
       <td class="td-mono td-muted" style="font-size:10px">${m.cert||'—'}</td>
       <td>${low?badge('LOW','b-red'):badge('OK','b-green')}</td>
@@ -6521,6 +6545,13 @@ function renderPOs(){
     </tr>`;}).join(''):`<tr><td colspan="9"><div class="empty-state"><p>No purchase orders</p></div></td></tr>`;
 }
 function sendPO(i){db.pos[i].status='Sent';renderPOs();toast(`${db.pos[i].id} marked as Sent`,'success');}
+
+function viewPOById(poId){
+  const i=db.pos.findIndex(p=>p.id===poId);
+  if(i<0){toast(`Purchase order ${poId} not found`,'error');return;}
+  navigate('po');
+  viewPO(i);
+}
 
 function viewPO(i){
   const p=db.pos[i];
@@ -7600,6 +7631,15 @@ function convertQuoteToWO(i){
     }
   }
 
+  // Carry over the quote's costing breakdown so it isn't lost on conversion
+  const breakdown=[
+    e.notes?e.notes:'',
+    `Quote ${e.id} breakdown — cycle: ${e.cycleMin}min, setup: ${e.setupMin}min, secondary ops: ${e.secMin}min, rate: £${e.rate}/hr, margin: ${e.margin}%, delivery: £${e.delivery}, other: £${e.other}`,
+    e.barSummary?`Bar plan: ${e.barSummary} (${e.totalBars} bars)`:'',
+  ].filter(Boolean).join('\n');
+  const notesEl=document.getElementById('o-notes');
+  if(notesEl) notesEl.value=breakdown;
+
   // Tag this quote so we know it's been converted once the WO is actually saved
   pendingQuoteConversion=i;
   toast(`Quote ${e.id} loaded — complete the work order details and click Create WO`,'info');
@@ -7978,7 +8018,7 @@ function saveNewUser(){
   }
   const colors=['#0ea5e9','#10b981','#f59e0b','#a855f7','#ef4444','#06b6d4','#84cc16','#f97316'];
   const color=colors[USERS.length%colors.length];
-  USERS.push({id,name,pin,role,rate:parseInt(document.getElementById('nu-rate').value)||38,perms,color,machines:[],holidayAllowance:28});
+  USERS.push({id,name,pin,role,rate:parseInt(document.getElementById('nu-rate').value)||38,perms,color,machines:[],holidayAllowance:28,canSignOff:false,canRaiseNCR:false});
   closeModal('modal-new-user');
   renderAdmin();
   buildLoginGrid();
@@ -7993,6 +8033,8 @@ function openEditUser(i){
   document.getElementById('eu-rate').value=u.rate;
   document.getElementById('eu-holiday-allowance').value=u.holidayAllowance??28;
   document.getElementById('eu-pin').value='';
+  document.getElementById('eu-can-signoff').checked=!!u.canSignOff;
+  document.getElementById('eu-can-ncr').checked=!!u.canRaiseNCR;
   document.getElementById('eu-name').dataset.idx=i;
   openModal('modal-edit-user');
 }
@@ -8009,6 +8051,8 @@ function applyEditUser(){
     if(newPin.length<4){toast('PIN must be at least 4 digits','error');return;}
     u.pin=newPin;
   }
+  u.canSignOff=document.getElementById('eu-can-signoff').checked;
+  u.canRaiseNCR=document.getElementById('eu-can-ncr').checked;
   closeModal('modal-edit-user');
   renderAdmin();
   buildLoginGrid();
