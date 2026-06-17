@@ -6970,18 +6970,21 @@ function raisePOFromRFQ(i){
     const supSel=document.getElementById('po-sup-sel');
     if(supSel && r.supCode) supSel.value=r.supCode;
 
-    // Pre-fill the first line block from the RFQ
-    const block=document.querySelector('#po-lines .po-line-block');
-    if(block){
+    // One PO line per distinct bar length from the RFQ's bar plan, so the
+    // PO mirrors what was actually quoted (e.g. 7×3000mm + 1×1000mm)
+    // instead of collapsing it into a single rounded-up line.
+    const barOrder=(r.barOrder&&r.barOrder.length)?r.barOrder:[{len:3000,qty:Math.ceil(r.qtyMm/3000)}];
+    barOrder.forEach((b,idx)=>{
+      const block=idx===0?document.querySelector('#po-lines .po-line-block'):(addPOLine(),document.querySelectorAll('#po-lines .po-line-block')[idx]);
       const setVal=(cls,val)=>{const el=block.querySelector('.'+cls); if(el) el.value=val;};
-      setVal('po-desc', `${r.grade||''} bar${r.dia?' Ø'+r.dia+'mm':''}`.trim());
-      setVal('po-qty', Math.ceil(r.qtyMm/3000)); // approx number of 3m bars
+      setVal('po-desc', `${r.grade||''} bar${r.dia?' Ø'+r.dia+'mm':''} × ${b.len}mm`.trim());
+      setVal('po-qty', b.qty);
       setVal('po-mat-type', r.matType||'');
       setVal('po-mat-grade', r.grade||'');
       setVal('po-mat-form', 'Bar — round');
-      setVal('po-mat-size', r.dia?`${r.dia}mm dia × 3000mm`:'');
-      calcPOTotal();
-    }
+      setVal('po-mat-size', r.dia?`${r.dia}mm dia × ${b.len}mm`:`${b.len}mm`);
+    });
+    calcPOTotal();
     if(r.notes) document.getElementById('po-notes').value=`From ${r.id}: ${r.notes}`;
   },100);
 
@@ -7024,6 +7027,7 @@ function printRFQ(){
     partDesc:rfqData.partDesc||'',
     partQty:rfqData.qty||0,
     barBreakdown,
+    barOrder:rfqData.barOrder||[],
     supCode:supCode||'',
     supName:supData?supData.name:'',
     due,
