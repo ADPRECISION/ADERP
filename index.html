@@ -563,7 +563,6 @@ tbody tr:hover td{background:var(--bg3)}
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <div class="tabs" id="order-tabs" style="flex:1">
             <div class="tab active" onclick="setOrderTab('all',this)">All <span class="tab-count" id="tc-all">0</span></div>
-            <div class="tab" onclick="setOrderTab('Quotation',this)">Quotation <span class="tab-count" id="tc-quot">0</span></div>
             <div class="tab" onclick="setOrderTab('Active',this)">Active <span class="tab-count" id="tc-act">0</span></div>
             <div class="tab" onclick="setOrderTab('QC Hold',this)">QC Hold <span class="tab-count" id="tc-qch">0</span></div>
             <div class="tab" onclick="setOrderTab('Complete',this)">Complete <span class="tab-count" id="tc-comp">0</span></div>
@@ -1363,7 +1362,7 @@ Tel: 01234 567000</textarea></div>
   <div class="modal-content">
     <div class="fg"><label>New status</label>
       <select id="status-select" onchange="document.getElementById('status-hold-row').style.display=this.value==='On Hold'?'block':'none'">
-        <option>Quotation</option><option>Active</option><option>On Hold</option><option>QC Hold</option><option>Complete</option>
+        <option>Active</option><option>On Hold</option><option>QC Hold</option><option>Complete</option>
       </select>
     </div>
     <div id="status-hold-row" style="display:none">
@@ -2604,7 +2603,7 @@ function initDB() {
 // ═══════════════════ HELPERS ═══════════════════
 function badge(txt,cls){return `<span class="badge ${cls}">${txt}</span>`;}
 function statusBadge(s){
-  const m={'Active':'b-blue','QC Hold':'b-amber','Complete':'b-green','Quotation':'b-gray',
+  const m={'Active':'b-blue','QC Hold':'b-amber','Complete':'b-green',
     'Received':'b-green','Sent':'b-blue','Draft':'b-gray','Partial':'b-amber',
     'Open':'b-red','Closed':'b-green','Approved':'b-green','Conditional':'b-amber',
     'Pending approval':'b-gray','Suspended':'b-red','Dispatched':'b-green'};
@@ -3889,7 +3888,7 @@ function renderDash(){
       <div style="font-size:9px;color:var(--purple);margin-top:4px;font-family:var(--mono)">click to open →</div>
     </div>`;
 
-  const activeOrders=db.orders.filter(o=>o.status!=='Complete'&&o.status!=='Quotation');
+  const activeOrders=db.orders.filter(o=>o.status!=='Complete');
   const woCnt=document.getElementById('dash-wo-count');
   if(activeOrders.length){woCnt.textContent=activeOrders.length;woCnt.style.display='inline-block';}
   else woCnt.style.display='none';
@@ -4092,8 +4091,8 @@ function renderOrders(){
   if(!db.deletedOrders) db.deletedOrders=[];
 
   // Update tab counts
-  ['all','Quotation','Active','QC Hold','Complete'].forEach(s=>{
-    const id={'all':'tc-all','Quotation':'tc-quot','Active':'tc-act','QC Hold':'tc-qch','Complete':'tc-comp'}[s];
+  ['all','Active','QC Hold','Complete'].forEach(s=>{
+    const id={'all':'tc-all','Active':'tc-act','QC Hold':'tc-qch','Complete':'tc-comp'}[s];
     const el=document.getElementById(id);
     if(el) el.textContent=s==='all'?db.orders.length:db.orders.filter(o=>o.status===s).length;
   });
@@ -7631,6 +7630,15 @@ function convertQuoteToWO(i){
       if(infoEl) infoEl.innerHTML=`<div style="padding:8px 10px;background:var(--amber-dim);border-radius:var(--r);border-left:3px solid var(--amber);color:var(--amber)">⚠ No matching stock found for "${e.matGrade}" — check material register or raise an RFQ/PO before starting this job.</div>`;
     }
   }
+
+  // Carry over the quote's costing breakdown so it isn't lost on conversion
+  const breakdown=[
+    e.notes?e.notes:'',
+    `Quote ${e.id} breakdown — cycle: ${e.cycleMin}min, setup: ${e.setupMin}min, secondary ops: ${e.secMin}min, rate: £${e.rate}/hr, margin: ${e.margin}%, delivery: £${e.delivery}, other: £${e.other}`,
+    e.barSummary?`Bar plan: ${e.barSummary} (${e.totalBars} bars)`:'',
+  ].filter(Boolean).join('\n');
+  const notesEl=document.getElementById('o-notes');
+  if(notesEl) notesEl.value=breakdown;
 
   // Tag this quote so we know it's been converted once the WO is actually saved
   pendingQuoteConversion=i;
