@@ -3827,7 +3827,7 @@ function renderDash(){
   // Pending holiday approvals for admin
   if(isAdmin()){
     const pending=(db.holidays||[]).filter(h=>h.status==='Pending');
-    if(pending.length) todos.push({icon:'🌴',text:`${pending.length} holiday request${pending.length>1?'s':''} awaiting approval`,sub:'Click to review',color:'var(--amber)',click:`navigate('holidays')`});
+    if(pending.length) todos.push({icon:'🌴',text:`${pending.length} holiday request${pending.length>1?'s':''} awaiting approval`,sub:'Click to review',color:'var(--amber)',click:`navToPendingHolidays()`});
   }
   // Unread DMs
   const unread=(db.messages||[]).filter(m=>m.to===name&&!m.read).length;
@@ -3867,7 +3867,7 @@ function renderDash(){
       <div class="metric-lbl">Low stock items</div><div class="metric-sub">${autoPOItems.length} need auto-PO</div>
       <div style="font-size:9px;color:var(--${lowStock>0?'red':'green'});margin-top:4px;font-family:var(--mono)">click to open →</div>
     </div>
-    <div class="metric m-${openNCR>0?'amber':'green'}" style="cursor:pointer" onclick="navigate('ncr')" title="Go to NCR / Quality">
+    <div class="metric m-${openNCR>0?'amber':'green'}" style="cursor:pointer" onclick="navToOpenNCRs()" title="Go to NCR / Quality">
       <div class="metric-trend">⚠</div><div class="metric-val" style="color:${openNCR>0?'var(--amber)':'inherit'}">${openNCR}</div>
       <div class="metric-lbl">Open NCRs</div><div class="metric-sub">${openNCR>0?'Action required':'All clear'}</div>
       <div style="font-size:9px;color:var(--${openNCR>0?'amber':'green'});margin-top:4px;font-family:var(--mono)">click to open →</div>
@@ -3936,7 +3936,7 @@ function renderDash(){
     '<div style="color:var(--txt3);font-size:12px">Nobody is clocked in</div>';
 
   document.getElementById('dash-ncrs').innerHTML=db.ncrs.filter(n=>n.status==='Open').map(n=>`
-    <div style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="navigate('ncr')">
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="navToOpenNCRs()">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span style="font-family:var(--mono);color:var(--red);font-size:11px">${n.id}</span>
         ${badge(n.type,'b-amber')}
@@ -4438,6 +4438,7 @@ function viewWO(id){
   const matCost=(mat?mat.cost:0)*o.matqty;
   const total=labourCost+matCost;
   const variance=o.quoted?o.quoted-total:null;
+  const activeLog=db.timeLogs.find(t=>t.wo===id&&!t.end);
 
   // Gauge status summary
   const gaugeHtml=(o.gauges&&o.gauges.length)?o.gauges.map(gid=>{
@@ -4454,7 +4455,7 @@ function viewWO(id){
         <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:3px">${o.id}</div>
         <h3>${o.part}</h3>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">${statusBadge(o.status)}${o.priority==='Urgent'?badge('URGENT','b-red'):''}<button class="ghost" onclick="closeModal('modal-view-wo')" data-tip="Close this window">✕</button></div>
+      <div style="display:flex;gap:6px;align-items:center">${activeLog?`<span style="font-size:10px;font-family:var(--mono);color:var(--green);display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;display:inline-block"></span>IN PROGRESS — ${activeLog.user}</span>`:''}${statusBadge(o.status)}${o.priority==='Urgent'?badge('URGENT','b-red'):''}<button class="ghost" onclick="closeModal('modal-view-wo')" data-tip="Close this window">✕</button></div>
     </div>
     <div class="modal-content" style="max-height:75vh;overflow-y:auto">
       ${o.status==='On Hold'&&o.holdReason?`<div class="alert alert-warn" style="margin-bottom:12px">🔒 <strong>On Hold:</strong> ${o.holdReason}</div>`:''}
@@ -4466,6 +4467,7 @@ function viewWO(id){
         <div><span style="color:var(--txt3)">Drawing:</span> <span style="font-family:var(--mono)">${o.pn||'—'} Rev ${o.rev||'A'}</span></div>
         <div><span style="color:var(--txt3)">Due:</span> <span style="font-family:var(--mono)">${o.due||'—'}</span></div>
         <div><span style="color:var(--txt3)">Material:</span> ${o.mat||'—'}</div>
+        <div><span style="color:var(--txt3)">Material PO#:</span> ${o.matpo?`<a href="#" onclick="closeModal('modal-view-wo');viewPOById('${o.matpo}');return false" style="color:var(--accent)">${o.matpo}</a>`:'—'}</div>
         <div><span style="color:var(--txt3)">Assigned:</span> ${o.assigned||'—'}</div>
       </div>
       ${o.notes?`<div class="alert alert-warn" style="margin-bottom:10px">⚠ ${o.notes}</div>`:''}
@@ -4478,15 +4480,16 @@ function viewWO(id){
       <div style="margin-bottom:14px">
         ${o.ops.map((op,i)=>{
           const isLocked=op.type==='dn';
+          const isCurrent=activeLog&&activeLog.op===op.name;
           const needsFirstOff=(op.type==='turn'||op.type==='mill')&&op.done&&!op.firstOffSignedBy;
           const prevInspDone=op.type==='dn'?o.ops.filter(x=>x.type==='inspect').every(x=>x.done&&x.firstOffSignedBy):true;
           const canComplete=!op.done&&!isLocked&&(op.type!=='dn')&&isAdmin();
           const opColor=OP_COLOURS[op.type]||'var(--border3)';
-          return `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:${op.done?'var(--bg3)':'var(--bg4)'};border-radius:var(--r);border-left:3px solid ${op.done?'var(--green)':opColor};margin-bottom:4px">
-            <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--mono);font-weight:600;flex-shrink:0;background:${op.done?'var(--green-dim)':'var(--bg5)'};border:1px solid ${op.done?'var(--green)':'var(--border3)'};color:${op.done?'var(--green)':'var(--txt3)'}">${op.done?'✓':i+1}</div>
+          return `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:${isCurrent?'#071a0e':op.done?'var(--bg3)':'var(--bg4)'};border-radius:var(--r);border-left:3px solid ${op.done?'var(--green)':isCurrent?'var(--green)':opColor};margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--mono);font-weight:600;flex-shrink:0;background:${op.done?'var(--green-dim)':isCurrent?'#071a0e':'var(--bg5)'};border:1px solid ${op.done?'var(--green)':isCurrent?'var(--green)':'var(--border3)'};color:${op.done?'var(--green)':isCurrent?'var(--green)':'var(--txt3)'}">${op.done?'✓':isCurrent?'●':i+1}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-family:var(--mono);font-size:11.5px;font-weight:600">${op.name}</div>
-              ${op.done?`<div style="font-size:10px;color:var(--green)">✓ ${op.by} · ${op.ts}</div>`:'<div style="font-size:10px;color:var(--txt3)">Pending</div>'}
+              <div style="font-family:var(--mono);font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:6px">${op.name}${isCurrent?`<span style="font-size:9px;background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:3px;padding:1px 6px;font-family:var(--mono)">IN PROGRESS</span>`:''}</div>
+              ${op.done?`<div style="font-size:10px;color:var(--green)">✓ ${op.by} · ${op.ts}</div>`:isCurrent?`<div style="font-size:10px;color:var(--green)">⏱ ${activeLog.user} clocked in</div>`:'<div style="font-size:10px;color:var(--txt3)">Pending</div>'}
               ${needsFirstOff?`<div style="font-size:10px;color:var(--amber)">⚠ First-off sign-off required by a different operator</div>`:''}
               ${op.firstOffSignedBy?`<div style="font-size:10px;color:var(--accent)">1st-off signed by: ${op.firstOffSignedBy}</div>`:''}
             </div>
@@ -5937,6 +5940,18 @@ function navToLowStockTab(){
   setTimeout(()=>setStockCategory(cat,document.querySelector(`#stock-cat-tabs .tab:nth-child(${cat==='tooling'?2:3})`)),50);
 }
 
+function navToOpenNCRs(){
+  navigate('ncr');
+  const sf=document.getElementById('ncr-status-filter');
+  if(sf){ sf.value='Open'; renderNCRs(); }
+}
+
+function navToPendingHolidays(){
+  navigate('holidays');
+  const tab=[...document.querySelectorAll('#hol-tabs .tab')].find(t=>t.textContent.trim().startsWith('Pending'));
+  if(tab) setHolTab('Pending',tab);
+}
+
 function renderStockPage(){
   const tabIndex={material:1,tooling:2,general:3,spares:4}[stockCategory]||1;
   setStockCategory(stockCategory, document.querySelector(`#stock-cat-tabs .tab:nth-child(${tabIndex})`));
@@ -5960,7 +5975,7 @@ function renderMaterial(){
       <td class="td-mono td-muted" style="font-size:10.5px">${m.size}</td>
       <td>${badge(m.qty+' '+m.unit,m.qty<=1?'b-red':m.qty<=3?'b-amber':'b-green')}</td>
       <td class="td-mono td-muted">${m.loc}</td>
-      <td class="td-mono" style="color:var(--accent);font-size:10.5px">${m.po||'—'}</td>
+      <td class="td-mono" style="font-size:10.5px">${m.po?`<a href="#" onclick="viewPOById('${m.po}');return false" style="color:var(--accent)">${m.po}</a>`:'—'}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.alloc}</td>
       <td class="td-mono td-muted" style="font-size:10px">${m.cert||'—'}</td>
       <td>${low?badge('LOW','b-red'):badge('OK','b-green')}</td>
@@ -6531,6 +6546,13 @@ function renderPOs(){
     </tr>`;}).join(''):`<tr><td colspan="9"><div class="empty-state"><p>No purchase orders</p></div></td></tr>`;
 }
 function sendPO(i){db.pos[i].status='Sent';renderPOs();toast(`${db.pos[i].id} marked as Sent`,'success');}
+
+function viewPOById(poId){
+  const i=db.pos.findIndex(p=>p.id===poId);
+  if(i<0){toast(`Purchase order ${poId} not found`,'error');return;}
+  navigate('po');
+  viewPO(i);
+}
 
 function viewPO(i){
   const p=db.pos[i];
