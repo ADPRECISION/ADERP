@@ -1864,6 +1864,8 @@ Tel: 01234 567000</textarea></div>
       <div class="fg"><label>Labour rate (£/hr)</label><input id="eu-rate" type="number" min="0"/></div>
       <div class="fg"><label>Annual holiday allowance (days)</label><input id="eu-holiday-allowance" type="number" min="0" value="28"/></div>
       <div class="fg"><label>New PIN (leave blank to keep current)</label><input id="eu-pin" type="password" maxlength="6" placeholder="Enter new PIN…"/></div>
+      <div class="fg full"><label><input id="eu-can-signoff" type="checkbox"/> Qualified to sign off first-offs</label></div>
+      <div class="fg full"><label><input id="eu-can-ncr" type="checkbox"/> Authorised to raise NCRs</label></div>
     </div>
   </div>
   <div class="modal-footer"><button onclick="closeModal('modal-edit-user')">Cancel</button><button class="primary" onclick="applyEditUser()">Save changes</button></div>
@@ -2556,7 +2558,6 @@ function initDB() {
   ];
   db.pm = [
     {id:'PM-001',task:'Spindle oil check & top up',machine:'Daewoo Puma 230M',assigned:'Slater Jay',freq:'Weekly',due:'2026-06-16',lastDone:'2026-06-09',lastBy:'Slater Jay',status:'Scheduled',notes:'',instructions:'Check oil level with dipstick. Top up with ISO 68 way oil if below min mark.'},
-    {id:'PM-002',task:'Coolant concentration check',machine:'All',assigned:'Rob Thurlow',freq:'Weekly',due:'2026-06-13',lastDone:'2026-06-06',lastBy:'Rob Thurlow',status:'Due',notes:'',instructions:'Use refractometer. Check against the target range for the coolant product on each machine (see Machine Register for product and range). Top up concentrate as required.'},
     {id:'PM-003',task:'Way lube check — Hardinge 1000 XP3',machine:'Hardinge 1000 XP3',assigned:'Rob Thurlow',freq:'Monthly',due:'2026-06-30',lastDone:'2026-05-31',lastBy:'Rob Thurlow',status:'Scheduled',notes:'',instructions:''},
     {id:'PM-004',task:'Full service & geometry check',machine:'Bridgeport VMC 800',assigned:'Rob Thurlow',freq:'6-monthly',due:'2026-09-01',lastDone:'2026-03-01',lastBy:'Rob Thurlow',status:'Scheduled',notes:'',instructions:'Book Haas service engineer. Check axis geometry, spindle run-out, lubrication.'},
     {id:'PM-005',task:'Gauge calibration review',machine:'All',assigned:'Jamie Easton',freq:'Monthly',due:'2026-06-15',lastDone:'2026-05-15',lastBy:'Jamie Easton',status:'Due',notes:'',instructions:'Review gauge register for upcoming calibration due dates. Book recalibration with approved supplier where required.'},
@@ -3861,7 +3862,7 @@ function renderDash(){
       <div class="metric-lbl">Works orders</div><div class="metric-sub">${activeWO} active</div>
       <div style="font-size:9px;color:var(--accent);margin-top:4px;font-family:var(--mono)">click to open →</div>
     </div>
-    <div class="metric m-${lowStock>0?'red':'green'}" style="cursor:pointer" onclick="navigate('material');setTimeout(()=>setStockCategory('general',document.querySelector('#stock-cat-tabs .tab:nth-child(2)')),50)" title="Go to Stock Register">
+    <div class="metric m-${lowStock>0?'red':'green'}" style="cursor:pointer" onclick="navToLowStockTab()" title="Go to Stock Register">
       <div class="metric-trend">▣</div><div class="metric-val" style="color:${lowStock>0?'var(--red)':'inherit'}">${lowStock}</div>
       <div class="metric-lbl">Low stock items</div><div class="metric-sub">${autoPOItems.length} need auto-PO</div>
       <div style="font-size:9px;color:var(--${lowStock>0?'red':'green'});margin-top:4px;font-family:var(--mono)">click to open →</div>
@@ -5927,6 +5928,14 @@ function setStockCategory(cat, el){
   else if(cat==='spares') renderSpares();
 }
 
+function navToLowStockTab(){
+  const lowToolingCount=db.stock.filter(s=>s.qty<=s.safety&&TOOLING_STOCK_CATS.includes(s.cat)).length;
+  const lowGeneralCount=db.stock.filter(s=>s.qty<=s.safety&&!TOOLING_STOCK_CATS.includes(s.cat)).length;
+  const cat=lowToolingCount>lowGeneralCount?'tooling':'general';
+  navigate('material');
+  setTimeout(()=>setStockCategory(cat,document.querySelector(`#stock-cat-tabs .tab:nth-child(${cat==='tooling'?2:3})`)),50);
+}
+
 function renderStockPage(){
   const tabIndex={material:1,tooling:2,general:3,spares:4}[stockCategory]||1;
   setStockCategory(stockCategory, document.querySelector(`#stock-cat-tabs .tab:nth-child(${tabIndex})`));
@@ -7978,7 +7987,7 @@ function saveNewUser(){
   }
   const colors=['#0ea5e9','#10b981','#f59e0b','#a855f7','#ef4444','#06b6d4','#84cc16','#f97316'];
   const color=colors[USERS.length%colors.length];
-  USERS.push({id,name,pin,role,rate:parseInt(document.getElementById('nu-rate').value)||38,perms,color,machines:[],holidayAllowance:28});
+  USERS.push({id,name,pin,role,rate:parseInt(document.getElementById('nu-rate').value)||38,perms,color,machines:[],holidayAllowance:28,canSignOff:false,canRaiseNCR:false});
   closeModal('modal-new-user');
   renderAdmin();
   buildLoginGrid();
@@ -7993,6 +8002,8 @@ function openEditUser(i){
   document.getElementById('eu-rate').value=u.rate;
   document.getElementById('eu-holiday-allowance').value=u.holidayAllowance??28;
   document.getElementById('eu-pin').value='';
+  document.getElementById('eu-can-signoff').checked=!!u.canSignOff;
+  document.getElementById('eu-can-ncr').checked=!!u.canRaiseNCR;
   document.getElementById('eu-name').dataset.idx=i;
   openModal('modal-edit-user');
 }
@@ -8009,6 +8020,8 @@ function applyEditUser(){
     if(newPin.length<4){toast('PIN must be at least 4 digits','error');return;}
     u.pin=newPin;
   }
+  u.canSignOff=document.getElementById('eu-can-signoff').checked;
+  u.canRaiseNCR=document.getElementById('eu-can-ncr').checked;
   closeModal('modal-edit-user');
   renderAdmin();
   buildLoginGrid();
