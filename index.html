@@ -756,7 +756,10 @@ tbody tr:hover td{background:var(--bg3)}
             <div class="card" id="label-preview">
               <div class="empty-state"><div class="es-icon">⊡</div><p>Label preview appears here</p></div>
             </div>
-            <div style="margin-top:10px;display:flex;justify-content:flex-end"><button onclick="printLabel()" id="print-lbl-btn" style="display:none" class="primary">🖨 Print label</button></div>
+            <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px">
+              <button onclick="promptNextLabel()" id="next-lbl-btn" style="display:none" class="ghost">Next label →</button>
+              <button onclick="printLabel()" id="print-lbl-btn" style="display:none" class="primary">🖨 Print label</button>
+            </div>
           </div>
         </div>
       </div>
@@ -6587,16 +6590,20 @@ function receivePO(poIdx, cert, recvBy, recvDate, lineQtyOverrides){
   p.lines.forEach((l,li)=>{
     const qty = lineQtyOverrides ? (parseFloat(lineQtyOverrides[li])||l.qty) : l.qty;
 
+    // Fall back to an auto-generated ref if the PO line was never given one,
+    // so booking in always lands the material in stock instead of silently dropping it
+    const ref = l.ref || `${(l.matGrade||l.desc||'MAT').replace(/[^A-Za-z0-9]+/g,'').toUpperCase().slice(0,12)}-${p.id}-${li+1}`;
+
     // Try to top up existing material record
-    const mat = db.material.find(m=>m.ref===l.ref);
+    const mat = db.material.find(m=>m.ref===ref);
     if(mat){
       mat.qty += qty;
       mat.cert = cert || mat.cert;
-      updated.push(l.ref);
-    } else if(l.ref){
+      updated.push(ref);
+    } else {
       // Auto-create a new material record so it's immediately available in WO creation
       const newMat = {
-        ref:   l.ref,
+        ref,
         type:  l.matType || 'Other',
         grade: l.matGrade || l.desc,
         form:  l.matForm  || 'Bar — round',
@@ -6614,11 +6621,12 @@ function receivePO(poIdx, cert, recvBy, recvDate, lineQtyOverrides){
         notes: `Auto-created on booking in ${p.id}`,
       };
       db.material.push(newMat);
-      created.push(l.ref);
+      created.push(ref);
     }
+    l.ref = ref;
 
     // Also top up stock register if ref matches
-    const st = db.stock.find(s=>s.code===l.ref);
+    const st = db.stock.find(s=>s.code===ref);
     if(st) st.qty += qty;
   });
 
@@ -6656,7 +6664,7 @@ function receiveGoods(i){
           ${l.matForm?` · ${l.matForm}`:''}
           ${l.matSize?` · ${l.matSize}`:''}
         </div>
-        ${!l.ref?`<div style="font-size:10.5px;color:var(--amber)">⚠ No stock ref — will not be added to material register</div>`:''}
+        ${!l.ref?`<div style="font-size:10.5px;color:var(--amber)">⚠ No stock ref — one will be auto-generated on booking in</div>`:''}
         ${!db.material.find(m=>m.ref===l.ref)?`<div style="font-size:10.5px;color:var(--accent)">✦ New — will be created in material stock</div>`:`<div style="font-size:10.5px;color:var(--green)">↑ Will top up existing stock</div>`}
       </div>
       <div style="text-align:center;flex-shrink:0">
@@ -6694,6 +6702,44 @@ function confirmBookIn(){
   goodsinBookIdx = null;
   renderGoodsIn();
   renderMaterial();
+
+  // Queue up a material label for each line just booked in, so goods-in
+  // always prompts the operator to print identification labels
+  pendingLabelQueue = p.lines.map(l=>({
+    grade: l.matGrade || l.desc || '—',
+    form: l.matForm || 'Bar — round',
+    size: l.matSize || '—',
+    qty: `${l.qty} ${l.unit||'bar'}`,
+    po: p.id,
+    wo: 'STOCK',
+    cert,
+    recv: recvBy,
+    date: recvDate
+  }));
+  promptNextLabel();
+}
+
+// ═══════════════════ LABEL PROMPT QUEUE (after goods-in) ═══════════════════
+let pendingLabelQueue = [];
+function promptNextLabel(){
+  if(!pendingLabelQueue.length) return;
+  const next = pendingLabelQueue.shift();
+  navigate('labels');
+  setTimeout(()=>{
+    document.getElementById('lbl-grade').value = next.grade;
+    document.getElementById('lbl-form').value = next.form;
+    document.getElementById('lbl-size').value = next.size;
+    document.getElementById('lbl-qty').value = next.qty;
+    document.getElementById('lbl-po').value = next.po;
+    document.getElementById('lbl-wo').value = next.wo;
+    document.getElementById('lbl-cert').value = next.cert;
+    document.getElementById('lbl-recv').value = next.recv;
+    document.getElementById('lbl-date').value = next.date;
+    genLabel();
+    const nextBtn=document.getElementById('next-lbl-btn');
+    if(nextBtn) nextBtn.style.display=pendingLabelQueue.length?'inline-flex':'none';
+    toast(pendingLabelQueue.length?`Print this label, then click "Next label" for ${pendingLabelQueue.length} more`:'Print this material label','info');
+  },50);
 }
 function printPO(i){
   const p=db.pos[i]; const total=p.lines.reduce((a,l)=>a+l.qty*l.cost,0);
