@@ -5121,14 +5121,15 @@ function clockStartActivity(woId, opIdx, type){
 
   // Get machines for this cell
   const cell = getWOCell(o).toLowerCase();
-  const authMachines = (curUser.machines && curUser.machines.length)
-    ? (db.machines||[]).filter(m=>curUser.machines.includes(m.name))
-    : (db.machines||[]).filter(m=>{
-        if(cell==='turning') return m.cell==='Turning';
-        if(cell==='milling') return m.cell==='Milling';
-        if(cell==='both') return m.cell==='Turning'||m.cell==='Milling';
-        return true;
-      });
+  const authMachines = (db.machines||[]).filter(m=>{
+    let cellMatch=true;
+    if(cell==='turning') cellMatch=m.cell==='Turning';
+    else if(cell==='milling') cellMatch=m.cell==='Milling';
+    else if(cell==='both') cellMatch=(m.cell==='Turning'||m.cell==='Milling');
+    if(!cellMatch) return false;
+    if(curUser.machines && curUser.machines.length) return curUser.machines.includes(m.name);
+    return true;
+  });
 
   if(!authMachines.length){ doClockIn(woId, opIdx, type, ''); return; }
 
