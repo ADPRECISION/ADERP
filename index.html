@@ -6978,6 +6978,7 @@ function raisePOFromRFQ(i){
       const block=idx===0?document.querySelector('#po-lines .po-line-block'):(addPOLine(),document.querySelectorAll('#po-lines .po-line-block')[idx]);
       const setVal=(cls,val)=>{const el=block.querySelector('.'+cls); if(el) el.value=val;};
       setVal('po-desc', `${r.grade||''} bar${r.dia?' Ø'+r.dia+'mm':''} × ${b.len}mm`.trim());
+      setVal('po-ref', `${r.grade||'MAT'}-${r.dia||0}RD-${b.len}`.replace(/\s+/g,''));
       setVal('po-qty', b.qty);
       setVal('po-mat-type', r.matType||'');
       setVal('po-mat-grade', r.grade||'');
