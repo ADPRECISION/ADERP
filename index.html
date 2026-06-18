@@ -4590,6 +4590,11 @@ function completeOp(woId,opIdx){
   if(o.ops.every(x=>x.done)){
     setWOStatus(o, 'Complete');
     toast(`${woId} — all operations complete!`,'success');
+  } else if(op.type!=='dn' && o.ops.filter(x=>x.type!=='dn').every(x=>x.done)){
+    // Manufacturing just finished but the DN op is still outstanding — prompt for it now
+    // instead of leaving it as a manual step the user has to remember
+    toast(`${woId} — manufacturing complete, ready for delivery note`,'success');
+    setTimeout(()=>{ closeModal('modal-view-wo'); navigate('delivery'); openDNModal(woId); },300);
   }
 
   viewWO(woId);
@@ -5696,6 +5701,7 @@ function confirmJobComplete(){
   closeModal('modal-job-complete');
   renderOrders();
 
+  const justFinishedWoId = completionState.woId;
   setTimeout(()=>{
     if(!allDone){
       clockSelectJob(completionState.woId);
@@ -5705,6 +5711,10 @@ function confirmJobComplete(){
       renderClockStep1();
       document.getElementById('clock-step-1').style.display='block';
       document.getElementById('clock-step-2').style.display='none';
+      // Manufacturing is finished and ready to ship — prompt the DN straight away
+      // instead of leaving it as a manual step the user has to remember
+      navigate('delivery');
+      openDNModal(justFinishedWoId);
     }
   },400);
 }
@@ -5717,14 +5727,15 @@ function renderFinishedParts(){
 
 // ── DN - open with finished parts ──
 // ── DN Modal — WO select first ──
-function openDNModal(){
+function openDNModal(preselectWoId){
   if(!db.finishedParts) db.finishedParts=[];
 
   // Show ALL completed or active WOs (not just ones with finishedParts records)
   // finishedParts are created by the full clocking flow; older WOs may not have them
   const eligibleWOs = db.orders.filter(o=>
     o.status==='Complete' ||
-    db.finishedParts.some(p=>p.wo===o.id&&(p.qty-p.despatchedQty)>0)
+    db.finishedParts.some(p=>p.wo===o.id&&(p.qty-p.despatchedQty)>0) ||
+    o.ops.filter(x=>x.type!=='dn').every(x=>x.done)
   );
 
   const sel = document.getElementById('dn-wo-sel');
@@ -5746,6 +5757,11 @@ function openDNModal(){
   document.getElementById('dn-qty-section').style.display='none';
   document.getElementById('dn-create-btn').disabled = true;
   openModal('modal-dn');
+
+  if(preselectWoId && eligibleWOs.some(o=>o.id===preselectWoId)){
+    sel.value = preselectWoId;
+    dnWOSelected();
+  }
 }
 
 function dnWOSelected(){
