@@ -4176,15 +4176,21 @@ function openStatusModal(id){
   openModal('modal-status');
 }
 
+// Single choke point for all WO status changes so every transition is auditable (ISO 9001 traceability)
+function setWOStatus(o, newStatus, reason){
+  if(!o || o.status===newStatus) return;
+  if(!o.statusHistory) o.statusHistory=[];
+  o.statusHistory.push({from:o.status, to:newStatus, by:(curUser&&curUser.name)||'System', ts:nowStr(), reason:reason||''});
+  o.status=newStatus;
+}
+
 function applyStatus(){
   const id=document.getElementById('status-select').dataset.wo;
   const o=db.orders.find(x=>x.id===id);
-  o.status=document.getElementById('status-select').value;
-  if(o.status==='On Hold'){
-    o.holdReason=document.getElementById('status-hold-reason').value||'On hold';
-  } else {
-    o.holdReason='';
-  }
+  const newStatus=document.getElementById('status-select').value;
+  const newHoldReason=newStatus==='On Hold'?(document.getElementById('status-hold-reason').value||'On hold'):'';
+  setWOStatus(o, newStatus, newHoldReason);
+  o.holdReason=newHoldReason;
   closeModal('modal-status');
   renderOrders();
   toast(`${id} → ${o.status}`,'success');
@@ -4471,6 +4477,7 @@ function viewWO(id){
         <div><span style="color:var(--txt3)">Material:</span> ${o.mat||'—'}</div>
         <div><span style="color:var(--txt3)">Material PO#:</span> ${o.matpo?`<a href="#" onclick="closeModal('modal-view-wo');viewPOById('${o.matpo}');return false" style="color:var(--accent)">${o.matpo}</a>`:'—'}</div>
         <div><span style="color:var(--txt3)">Assigned:</span> ${o.assigned||'—'}</div>
+        <div><span style="color:var(--txt3)">NCRs:</span> ${(o.ncrIds&&o.ncrIds.length)?o.ncrIds.map(nid=>{const n=db.ncrs.find(x=>x.id===nid);return `<a href="#" onclick="closeModal('modal-view-wo');navigate('ncr');return false" style="color:${n&&n.status==='Open'?'var(--red)':'var(--txt3)'}">${nid}${n?` (${n.status})`:''}</a>`;}).join(', '):'—'}</div>
       </div>
       ${o.notes?`<div class="alert alert-warn" style="margin-bottom:10px">⚠ ${o.notes}</div>`:''}
 
@@ -4524,6 +4531,12 @@ function viewWO(id){
             <a href="${f.data}" download="${f.name}"><button class="ghost xs">⬇ Download</button></a>
             ${f.type.includes('pdf')||f.type.includes('image')?`<button class="ghost xs" onclick="previewFile('${id}',${i})" data-tip="Preview this attached file">👁 Preview</button>`:''}
           </div>`).join('')}</div>`:''}
+
+      ${(o.statusHistory&&o.statusHistory.length)?`
+        <div class="sec-title">Status history</div>
+        <div style="margin-bottom:10px;font-size:11px;font-family:var(--mono);color:var(--txt3)">
+          ${o.statusHistory.slice().reverse().map(h=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)">${h.ts} — <span style="color:var(--txt)">${h.from||'—'} → ${h.to}</span> by ${h.by}${h.reason?` (${h.reason})`:''}</div>`).join('')}
+        </div>`:''}
     </div>
     <div class="modal-footer">
       <button onclick="closeModal('modal-view-wo')">Close</button>
@@ -4554,7 +4567,7 @@ function completeOp(woId,opIdx){
   if(op.type==='inspect'){
     const check=checkGaugesForWO(woId);
     if(!check.ok){
-      o.status='On Hold';
+      setWOStatus(o, 'On Hold', 'Awaiting gauge calibration: '+check.problems.join('; '));
       o.holdReason='Awaiting gauge calibration: '+check.problems.join('; ');
       toast('⚠ Inspection blocked — gauge out of calibration. WO put On Hold.','error');
       renderOrders();
@@ -4575,7 +4588,7 @@ function completeOp(woId,opIdx){
 
   // Check if all ops complete
   if(o.ops.every(x=>x.done)){
-    o.status='Complete';
+    setWOStatus(o, 'Complete');
     toast(`${woId} — all operations complete!`,'success');
   }
 
@@ -4842,7 +4855,7 @@ function confirmReopenOp(woId, opIdx){
   if(logIdx!==undefined) db.timeLogs.splice(logIdx,1);
 
   // If WO was Complete, set back to Active
-  if(o.status==='Complete') o.status='Active';
+  if(o.status==='Complete') setWOStatus(o, 'Active', 'Reopened — op un-done');
 
   // Remove confirm panel
   const panel = document.getElementById('reopen-confirm-panel');
@@ -5357,6 +5370,15 @@ function confirmConsumeMaterial(){
   op.materialPO = enteredPO||mat.po||'';
   op.materialHeat = mat.cert||'';
 
+  // Flag if the operator consumed a different material batch than the WO was created against,
+  // so a substitution is traceable rather than silently accepted
+  if(o.mat && o.mat!==ref){
+    op.materialSubstituted = true;
+    if(!o.statusHistory) o.statusHistory=[];
+    o.statusHistory.push({from:o.status, to:o.status, by:curUser.name, ts:nowStr(), reason:`Material substituted: WO specified "${o.mat}" but "${ref}" was consumed`});
+    toast(`⚠ Note: WO specified material "${o.mat}" but "${ref}" was consumed — logged as a substitution`,'warn');
+  }
+
   // Set the total parts in play — this becomes the fixed total for all ops
   o.totalPartsInPlay = partsQty;
 
@@ -5628,7 +5650,7 @@ function confirmJobComplete(){
   const allDone = nonDN.every(x=>x.done);
 
   if(allDone){
-    o.status='Complete';
+    setWOStatus(o, 'Complete');
     if(!db.finishedParts) db.finishedParts=[];
     db.finishedParts.push({
       id:'FP-'+Date.now(),
@@ -5639,6 +5661,7 @@ function confirmJobComplete(){
       scrap:scrapQty,
       materialRef:o.mat, materialGrade:o.matDesc||'',
       materialPO:o.matpo||'', materialHeat:o.matheat||'',
+      ncrIds:(o.ncrIds||[]).slice(),
       completedBy:curUser.name, completedDate:todayISO(),
       despatched:false, despatchedQty:0,
     });
@@ -5813,7 +5836,7 @@ function saveDN(){
   if(o){
     const dnOp = o.ops.find(op=>op.type==='dn');
     if(dnOp&&!dnOp.done){dnOp.done=true;dnOp.by=curUser.name;dnOp.ts=nowStr();}
-    if(o.ops.every(op=>op.done)) o.status='Complete';
+    if(o.ops.every(op=>op.done)) setWOStatus(o, 'Complete');
   }
 
   closeModal('modal-dn');
@@ -9514,6 +9537,10 @@ function saveNCR(){
   const desc=(document.getElementById('ncr-desc')||{}).value?.trim();
   if(!ref||!desc){toast('Reference and description are required','error');return;}
   const id=nextID('NCR-',db.ncrs);
+
+  // Pull material traceability straight from the referenced WO, if it is one,
+  // so the NCR is tied to the exact material batch/cert it relates to
+  const o=db.orders.find(x=>x.id===ref);
   db.ncrs.push({
     id,ref,
     type:document.getElementById('ncr-type').value,
@@ -9527,8 +9554,12 @@ function saveNCR(){
     status:'Open',
     rootCause:'',
     corrective:'',
+    materialRef:o?(o.mat||''):'',
+    materialPO:o?(o.matpo||''):'',
+    materialHeat:o?(o.matheat||''):'',
     activity:[{by:curUser.name,date:todayISO(),note:`NCR raised. Disposition: ${document.getElementById('ncr-disp').value}. Containment: ${document.getElementById('ncr-contain').value||'None recorded'}`}],
   });
+  if(o){ if(!o.ncrIds) o.ncrIds=[]; o.ncrIds.push(id); }
   closeModal('modal-ncr');renderNCRs();toast(`${id} raised`,'success');
 }
 
