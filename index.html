@@ -6942,7 +6942,7 @@ function updateRFQHint(){
   // Show what standard bars this corresponds to
   if(val > 0){
     const allLens = [3000,2000,1000,500];
-    function usable(l){ return l - Math.floor(l/1000)*40; }
+    function usable(l){ return l - 40; }
     // Just show the raw bar breakdown for the requested total mm
     const bars = [];
     let remaining = val;
@@ -7218,7 +7218,7 @@ function runEstimate(){
   // Always consider all 4 standard lengths; find minimum-waste combination
   const allLengths = [3000, 2000, 1000, 500];
   const lengthPerPart = partLen + partOff;
-  function usable(len){ return len - Math.floor(len/1000)*40; }
+  function usable(len){ return len - 40; }
   function partsFrom(len){ return lengthPerPart > 0 ? Math.floor(usable(len)/lengthPerPart) : 0; }
 
   // Greedy minimum-waste: fill full bars of largest first, use smallest bar for remainder
@@ -7355,7 +7355,7 @@ function runEstimate(){
                 <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent);min-width:32px">${b.qty}×</span>
                 <div style="flex:1">
                   <strong>${b.len}mm</strong>
-                  <span style="color:var(--txt3);font-size:11px;margin-left:8px">${b.pp} parts · usable ${usable(b.len)}mm · ${Math.floor(b.len/1000)*40}mm chuck</span>
+                  <span style="color:var(--txt3);font-size:11px;margin-left:8px">${b.pp} parts · usable ${usable(b.len)}mm · 40mm chuck</span>
                 </div>
                 <span style="font-family:var(--mono);font-size:11px;color:${matCostKnown?'var(--green)':'var(--txt3)'}">
                   ${matCostKnown?'£'+(barOrder.find(x=>x.len===b.len)?((stockMat.cost*(b.len/3000))*b.qty).toFixed(2):'—'):'cost TBD'}
@@ -7550,7 +7550,7 @@ function saveEstimate(){
   const lengthPerPart = partLen+partOff;
 
   // Use same algorithm as runEstimate
-  function usableS(len){ return len - Math.floor(len/1000)*40; }
+  function usableS(len){ return len - 40; }
   const sortedDesc=[3000,2000,1000,500];
   const sortedAsc=[500,1000,2000,3000];
   let barOrderS=[],partsLeft=totalQty;
