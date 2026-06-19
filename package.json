@@ -1,0 +1,9 @@
+{
+  "name": "aderp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A&D Precision Engineering shop-floor ERP",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

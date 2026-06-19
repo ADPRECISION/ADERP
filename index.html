@@ -2301,22 +2301,65 @@ let db = {
   orders:[], pos:[], dns:[], ncrs:[], timeLogs:[], isoDocs:[], gauges:[], machines:[], staging:[], finishedParts:[], scrapLog:[], sparesStock:[], holidays:[], pm:[], messages:[], rfqs:[], coolantChecks:[], coolantProducts:[]
 };
 
-// ── PERSISTENCE — survive a page refresh via localStorage ──
+// ── PERSISTENCE ──
+// Source of truth is the server (/api/db) so the whole team — local or remote —
+// shares one live dataset. localStorage is kept only as an offline fallback cache
+// for when the server can't be reached (e.g. flaky connection).
 const DB_STORAGE_KEY = 'aderp_db_v1';
 const BACKUP_TIME_KEY = 'aderp_last_backup_v1';
+let dbSaveInFlight = false;
 
-function saveDB(){
-  try{ localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(db)); }
-  catch(e){ console.error('Autosave failed:', e); }
+async function saveDB(){
+  const json = JSON.stringify(db);
+  try{ localStorage.setItem(DB_STORAGE_KEY, json); }catch(e){}
+  if(dbSaveInFlight) return; // don't pile up overlapping saves
+  dbSaveInFlight = true;
+  try{
+    await fetch('/api/db', { method:'POST', headers:{'Content-Type':'application/json'}, body: json });
+  }catch(e){
+    console.error('Could not reach server — change is cached locally only until connection returns:', e);
+  }finally{
+    dbSaveInFlight = false;
+  }
 }
 
-// Returns true if a previously saved db was found and loaded
-function loadDB(){
+// Returns true if a db was found (server or local cache) and loaded
+async function loadDB(){
+  try{
+    const res = await fetch('/api/db');
+    if(res.ok){
+      const text = await res.text();
+      const parsed = JSON.parse(text);
+      if(parsed){
+        db = parsed;
+        try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
+        return true;
+      }
+    }
+  }catch(e){ console.error('Could not reach server, falling back to local cache:', e); }
   try{
     const raw = localStorage.getItem(DB_STORAGE_KEY);
     if(raw){ db = JSON.parse(raw); return true; }
-  }catch(e){ console.error('Failed to load saved data, starting fresh:', e); }
+  }catch(e){ console.error('Failed to load cached data, starting fresh:', e); }
   return false;
+}
+
+// Pull the latest data from the server so other users' changes show up here too.
+// Last-write-wins: if you and someone else save within the same few seconds,
+// whichever save reaches the server last is what everyone ends up seeing.
+async function pullRemoteDB(){
+  if(dbSaveInFlight) return;
+  try{
+    const res = await fetch('/api/db');
+    if(!res.ok) return;
+    const text = await res.text();
+    const parsed = JSON.parse(text);
+    if(!parsed) return;
+    if(db._updatedAt && parsed._updatedAt && parsed._updatedAt <= db._updatedAt) return; // nothing new
+    db = parsed;
+    try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
+    if(curUser && typeof navigate === 'function' && currentPage) navigate(currentPage);
+  }catch(e){ /* offline — keep showing last known data */ }
 }
 
 function initDB() {
@@ -2812,6 +2855,7 @@ function doLogin(){
     return;
   }
   curUser=u;
+  localStorage.setItem(SESSION_KEY, u.id);
   document.getElementById('login').style.display='none';
   document.getElementById('shell').style.display='flex';
   // topbar
@@ -2826,11 +2870,34 @@ function doLogin(){
   navigate('dash');
 }
 
+// Keeps you logged in as the same user after a refresh, on this device only
+const SESSION_KEY = 'aderp_session_v1';
+function restoreSession(){
+  const uid = localStorage.getItem(SESSION_KEY);
+  if(!uid) return false;
+  const u = USERS.find(x=>x.id===uid);
+  if(!u) return false;
+  curUser=u;
+  document.getElementById('login').style.display='none';
+  document.getElementById('shell').style.display='flex';
+  const av=document.getElementById('tb-avatar');
+  av.textContent=avatarInitials(u.name);
+  av.style.background=u.color;
+  document.getElementById('tb-uname').textContent=u.name;
+  document.getElementById('tb-urole').textContent=u.role;
+  buildNav();
+  updateDMBadges();
+  checkCalibrationWarnings();
+  navigate('dash');
+  return true;
+}
+
 function logout(){
   if(clockState.active) clockOut();
   if(routingRefreshInterval) clearInterval(routingRefreshInterval);
   routingRefreshInterval = null;
   curUser=null; selectedUID=null;
+  localStorage.removeItem(SESSION_KEY);
   document.getElementById('login').style.display='flex';
   document.getElementById('shell').style.display='none';
   document.getElementById('pin-input').value='';
@@ -2924,8 +2991,10 @@ const PAGE_LABELS={
   suppliers:'Suppliers',customers:'Customers',delivery:'Delivery notes',ncr:'NCR / Quality',admin:'Admin & system',estimator:'Job Estimator'
 };
 
+let currentPage = 'dash';
 function navigate(page){
   if(!hasAccess(page)){toast('Access denied for this page','error');return;}
+  currentPage = page;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+page);
@@ -10275,8 +10344,8 @@ function populateOrderSelects(){
 }
 
 // ═══════════════════ INIT ═══════════════════
-document.addEventListener('DOMContentLoaded',()=>{
-  const restored = loadDB();
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const restored = await loadDB();
   if(!restored) initDB();
   const savedBackupTime = localStorage.getItem(BACKUP_TIME_KEY);
   if(savedBackupTime){
@@ -10293,9 +10362,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   // set default date for DN
   const dnDate=document.getElementById('dn-date');
   if(dnDate) dnDate.value=todayISO();
-  if(restored) toast('Restored your data from before the last refresh','info');
-  // Autosave so a refresh/close never loses work
+  // Stay logged in across a refresh, as the same user, on this device
+  restoreSession();
+  // Autosave so a refresh/close never loses work, and pick up changes other users have made
   setInterval(saveDB, 5000);
+  setInterval(pullRemoteDB, 8000);
   window.addEventListener('beforeunload', saveDB);
 });
 </script>
