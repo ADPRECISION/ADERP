@@ -2301,6 +2301,24 @@ let db = {
   orders:[], pos:[], dns:[], ncrs:[], timeLogs:[], isoDocs:[], gauges:[], machines:[], staging:[], finishedParts:[], scrapLog:[], sparesStock:[], holidays:[], pm:[], messages:[], rfqs:[], coolantChecks:[], coolantProducts:[]
 };
 
+// ── PERSISTENCE — survive a page refresh via localStorage ──
+const DB_STORAGE_KEY = 'aderp_db_v1';
+const BACKUP_TIME_KEY = 'aderp_last_backup_v1';
+
+function saveDB(){
+  try{ localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(db)); }
+  catch(e){ console.error('Autosave failed:', e); }
+}
+
+// Returns true if a previously saved db was found and loaded
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(DB_STORAGE_KEY);
+    if(raw){ db = JSON.parse(raw); return true; }
+  }catch(e){ console.error('Failed to load saved data, starting fresh:', e); }
+  return false;
+}
+
 function initDB() {
   db.customers = [
     {code:'CUST-001',name:'Rollason Engineering',contact:'Mark Rollason',phone:'01234 567890',email:'orders@rollason.co.uk',addr:'12 Works Road, Birmingham, B1 2AB',status:'Active'},
@@ -2730,6 +2748,8 @@ function exportFullBackup(){
 
   lastBackupTime = Date.now();
   lastBackupLabel = 'Last backup: '+new Date().toLocaleString('en-GB');
+  localStorage.setItem(BACKUP_TIME_KEY, String(lastBackupTime));
+  localStorage.setItem(BACKUP_TIME_KEY+'_label', lastBackupLabel);
   hideBackupWarning();
   updateBackupStatusUI();
   toast('Full backup exported','success');
@@ -8127,6 +8147,7 @@ function saveCustomer(){
 
 // ═══════════════════ ADMIN ═══════════════════
 function renderAdmin(){
+  updateBackupStatusUI();
   // Users list
   const container=document.getElementById('admin-users-list');
   container.innerHTML=USERS.map((u,i)=>{
@@ -10255,7 +10276,13 @@ function populateOrderSelects(){
 
 // ═══════════════════ INIT ═══════════════════
 document.addEventListener('DOMContentLoaded',()=>{
-  initDB();
+  const restored = loadDB();
+  if(!restored) initDB();
+  const savedBackupTime = localStorage.getItem(BACKUP_TIME_KEY);
+  if(savedBackupTime){
+    lastBackupTime = parseInt(savedBackupTime,10);
+    lastBackupLabel = localStorage.getItem(BACKUP_TIME_KEY+'_label') || lastBackupLabel;
+  }
   buildLoginGrid();
   buildPermGrid();
   populateOrderSelects();
@@ -10266,6 +10293,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   // set default date for DN
   const dnDate=document.getElementById('dn-date');
   if(dnDate) dnDate.value=todayISO();
+  if(restored) toast('Restored your data from before the last refresh','info');
+  // Autosave so a refresh/close never loses work
+  setInterval(saveDB, 5000);
+  window.addEventListener('beforeunload', saveDB);
 });
 </script>
 </body>
