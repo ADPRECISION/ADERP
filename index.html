@@ -2307,15 +2307,49 @@ let db = {
 // for when the server can't be reached (e.g. flaky connection).
 const DB_STORAGE_KEY = 'aderp_db_v1';
 const BACKUP_TIME_KEY = 'aderp_last_backup_v1';
+const SITE_KEY_STORAGE = 'aderp_site_key_v1';
 let dbSaveInFlight = false;
 
+// The server requires this shared team key on every /api/db request. Ask once,
+// cache it, and re-ask if the server ever rejects it (wrong/changed key).
+function getSiteKeyHeader(){
+  return localStorage.getItem(SITE_KEY_STORAGE) || '';
+}
+function promptForSiteKey(message){
+  const entered = prompt(message || 'Enter the team site access key (ask whoever set up the server):');
+  if(entered){
+    const trimmed = entered.trim();
+    if(trimmed) localStorage.setItem(SITE_KEY_STORAGE, trimmed);
+    return trimmed;
+  }
+  return '';
+}
+function siteKeyHeaders(extra){
+  return Object.assign({ 'X-Site-Key': getSiteKeyHeader() }, extra || {});
+}
+
+// Mirror the USERS account list (PINs/roles) into db so it's persisted and
+// shared across the team instead of vanishing on refresh/restart.
+function syncUsersIntoDB(){
+  db._users = USERS;
+}
+function restoreUsersFromDB(){
+  if(Array.isArray(db._users) && db._users.length) USERS = db._users;
+}
+
 async function saveDB(){
+  syncUsersIntoDB();
   const json = JSON.stringify(db);
   try{ localStorage.setItem(DB_STORAGE_KEY, json); }catch(e){}
   if(dbSaveInFlight) return; // don't pile up overlapping saves
   dbSaveInFlight = true;
   try{
-    await fetch('/api/db', { method:'POST', headers:{'Content-Type':'application/json'}, body: json });
+    const res = await fetch('/api/db', { method:'POST', headers: siteKeyHeaders({'Content-Type':'application/json'}), body: json });
+    if(res.status === 401){
+      if(promptForSiteKey('Site key was rejected. Enter the correct team site access key:')){
+        await fetch('/api/db', { method:'POST', headers: siteKeyHeaders({'Content-Type':'application/json'}), body: json });
+      }
+    }
   }catch(e){
     console.error('Could not reach server — change is cached locally only until connection returns:', e);
   }finally{
@@ -2326,12 +2360,16 @@ async function saveDB(){
 // Returns true if a db was found (server or local cache) and loaded
 async function loadDB(){
   try{
-    const res = await fetch('/api/db');
+    let res = await fetch('/api/db', { headers: siteKeyHeaders() });
+    if(res.status === 401){
+      if(promptForSiteKey()) res = await fetch('/api/db', { headers: siteKeyHeaders() });
+    }
     if(res.ok){
       const text = await res.text();
       const parsed = JSON.parse(text);
       if(parsed){
         db = parsed;
+        restoreUsersFromDB();
         try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
         return true;
       }
@@ -2339,24 +2377,25 @@ async function loadDB(){
   }catch(e){ console.error('Could not reach server, falling back to local cache:', e); }
   try{
     const raw = localStorage.getItem(DB_STORAGE_KEY);
-    if(raw){ db = JSON.parse(raw); return true; }
+    if(raw){ db = JSON.parse(raw); restoreUsersFromDB(); return true; }
   }catch(e){ console.error('Failed to load cached data, starting fresh:', e); }
   return false;
 }
 
 // Pull the latest data from the server so other users' changes show up here too.
-// Last-write-wins: if you and someone else save within the same few seconds,
-// whichever save reaches the server last is what everyone ends up seeing.
+// The server merges concurrent saves per-record, so additions from different
+// people survive; only a same-record same-instant edit could still lose one side.
 async function pullRemoteDB(){
   if(dbSaveInFlight) return;
   try{
-    const res = await fetch('/api/db');
+    const res = await fetch('/api/db', { headers: siteKeyHeaders() });
     if(!res.ok) return;
     const text = await res.text();
     const parsed = JSON.parse(text);
     if(!parsed) return;
     if(db._updatedAt && parsed._updatedAt && parsed._updatedAt <= db._updatedAt) return; // nothing new
     db = parsed;
+    restoreUsersFromDB();
     try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
     if(curUser && typeof navigate === 'function' && currentPage) navigate(currentPage);
   }catch(e){ /* offline — keep showing last known data */ }
