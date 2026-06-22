@@ -746,6 +746,7 @@ tbody tr:hover td{background:var(--bg3)}
                 <div class="fg"><label>Amount / qty</label><input id="lbl-qty" placeholder="e.g. 1 bar / 2.4kg"/></div>
                 <div class="fg"><label>PO number</label><input id="lbl-po" placeholder="e.g. PO-001"/></div>
                 <div class="fg"><label>Intended WO / job</label><input id="lbl-wo" placeholder="e.g. WO-001 or Stock"/></div>
+                <div class="fg"><label>Storage location</label><input id="lbl-loc" placeholder="e.g. Rack 3, Bay B"/></div>
                 <div class="fg full"><label>Cert / heat number</label><input id="lbl-cert" placeholder="e.g. CERT-M24-0091"/></div>
                 <div class="fg"><label>Received by</label><input id="lbl-recv" placeholder="Initials" maxlength="4"/></div>
                 <div class="fg"><label>Date received</label><input id="lbl-date" type="date"/></div>
@@ -1568,6 +1569,9 @@ Tel: 01234 567000</textarea></div>
       </div>
       <div class="fg"><label>Date received</label>
         <input id="goodsin-recv-date" type="date"/>
+      </div>
+      <div class="fg full"><label>Storage location (applies to all material lines)</label>
+        <input id="goodsin-loc" placeholder="e.g. Rack 3, Bay B"/>
       </div>
     </div>
     <div class="alert al-info" style="font-size:11.5px">
@@ -6244,13 +6248,23 @@ function renderMaterial(){
       <td class="td-muted">${m.form}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.size}</td>
       <td>${badge(m.qty+' '+m.unit,m.qty<=1?'b-red':m.qty<=3?'b-amber':'b-green')}</td>
-      <td class="td-mono td-muted">${m.loc}</td>
+      <td class="td-mono td-muted" style="cursor:pointer" onclick="editMatLoc(${idx})" data-tip="Click to set/update storage location">${m.loc||'—'} ✎</td>
       <td class="td-mono" style="font-size:10.5px">${m.po?`<a href="#" onclick="viewPOById('${m.po}');return false" style="color:var(--accent)">${m.po}</a>`:'—'}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.alloc}</td>
       <td class="td-mono td-muted" style="font-size:10px">${m.cert||'—'}</td>
       <td>${low?badge('LOW','b-red'):badge('OK','b-green')}</td>
       <td><button class="ghost xs" onclick="openAdj('material',${idx})">Adjust qty</button></td>
     </tr>`;}).join(''):`<tr><td colspan="11"><div class="empty-state"><p>No material found</p></div></td></tr>`;
+}
+
+function editMatLoc(idx){
+  const mat = db.material[idx];
+  const entered = prompt(`Storage location for ${mat.ref}:`, mat.loc==='Awaiting storage allocation'?'':mat.loc||'');
+  if(entered===null) return;
+  mat.loc = entered.trim() || 'Awaiting storage allocation';
+  renderMaterial();
+  saveDB();
+  toast('Storage location updated','success');
 }
 
 function saveMaterial(){
@@ -6301,10 +6315,11 @@ function genLabel(){
   const qty=document.getElementById('lbl-qty').value||'—';
   const po=document.getElementById('lbl-po').value||'—';
   const wo=document.getElementById('lbl-wo').value||'STOCK';
+  const loc=document.getElementById('lbl-loc').value||'—';
   const cert=document.getElementById('lbl-cert').value||'—';
   const recv=document.getElementById('lbl-recv').value||'—';
   const date=document.getElementById('lbl-date').value||new Date().toLocaleDateString('en-GB');
-  currentLabelData={grade,form,size,qty,po,wo,cert,recv,date};
+  currentLabelData={grade,form,size,qty,po,wo,loc,cert,recv,date};
   document.getElementById('label-preview').innerHTML=`
     <div class="label-box">
       <div class="label-header">RAW MATERIAL IDENTIFICATION</div>
@@ -6314,6 +6329,7 @@ function genLabel(){
         <div class="label-row"><span class="label-key">AMOUNT / QTY</span><span>${qty}</span></div>
         <div class="label-row"><span class="label-key">PO NUMBER</span><span style="color:var(--accent);font-weight:600">${po}</span></div>
         <div class="label-row"><span class="label-key">INTENDED FOR</span><span>${wo}</span></div>
+        <div class="label-row"><span class="label-key">STORAGE LOCATION</span><span style="font-weight:600">${loc}</span></div>
         <div class="label-row"><span class="label-key">CERT / HEAT No.</span><span>${cert}</span></div>
         <div class="label-row"><span class="label-key">RECEIVED BY</span><span>${recv}</span></div>
         <div class="label-row"><span class="label-key">DATE RECEIVED</span><span>${date}</span></div>
@@ -6339,6 +6355,7 @@ function printLabel(){
   <div class="row"><span class="k">AMOUNT / QTY</span><span>${d.qty}</span></div>
   <div class="row"><span class="k">PO NUMBER</span><span><b>${d.po}</b></span></div>
   <div class="row"><span class="k">INTENDED FOR</span><span>${d.wo}</span></div>
+  <div class="row"><span class="k">STORAGE LOCATION</span><span><b>${d.loc}</b></span></div>
   <div class="row"><span class="k">CERT / HEAT No.</span><span>${d.cert}</span></div>
   <div class="row"><span class="k">RECEIVED BY</span><span>${d.recv}</span></div>
   <div class="row"><span class="k">DATE RECEIVED</span><span>${d.date}</span></div>
@@ -6850,7 +6867,7 @@ function viewPO(i){
   openModal('modal-view-po-print');
 }
 
-function receivePO(poIdx, cert, recvBy, recvDate, lineQtyOverrides){
+function receivePO(poIdx, cert, recvBy, recvDate, lineQtyOverrides, loc){
   const p = db.pos[poIdx];
   p.status = 'Received';
   const created = [], updated = [];
@@ -6867,6 +6884,7 @@ function receivePO(poIdx, cert, recvBy, recvDate, lineQtyOverrides){
     if(mat){
       mat.qty += qty;
       mat.cert = cert || mat.cert;
+      if(loc) mat.loc = loc;
       updated.push(ref);
     } else {
       // Auto-create a new material record so it's immediately available in WO creation
@@ -6878,7 +6896,7 @@ function receivePO(poIdx, cert, recvBy, recvDate, lineQtyOverrides){
         size:  l.matSize  || '—',
         qty,
         unit:  l.unit || 'bar',
-        loc:   'Goods in — awaiting storage',
+        loc:   loc || 'Awaiting storage allocation',
         po:    p.id,
         alloc: 'STOCK',
         sup:   p.sup,
@@ -6949,6 +6967,7 @@ function receiveGoods(i){
   document.getElementById('goodsin-recv-date').value = todayISO();
   document.getElementById('goodsin-recv-by').value = curUser.name;
   document.getElementById('goodsin-cert').value = '';
+  document.getElementById('goodsin-loc').value = '';
   openModal('modal-goodsin-book');
 }
 
@@ -6959,13 +6978,14 @@ function confirmBookIn(){
   const cert     = document.getElementById('goodsin-cert').value.trim();
   const recvBy   = document.getElementById('goodsin-recv-by').value.trim();
   const recvDate = document.getElementById('goodsin-recv-date').value;
+  const loc      = document.getElementById('goodsin-loc').value.trim();
 
   // Collect per-line received qtys
   const lineQtyOverrides = p.lines.map((_,li)=>
     parseFloat((document.getElementById(`goodsin-recv-qty-${li}`)||{}).value)||0
   );
 
-  receivePO(i, cert, recvBy, recvDate, lineQtyOverrides);
+  receivePO(i, cert, recvBy, recvDate, lineQtyOverrides, loc);
   closeModal('modal-goodsin-book');
   goodsinBookIdx = null;
   renderGoodsIn();
@@ -6980,6 +7000,7 @@ function confirmBookIn(){
     qty: `${l.qty} ${l.unit||'bar'}`,
     po: p.id,
     wo: 'STOCK',
+    loc: loc || 'Awaiting storage allocation',
     cert,
     recv: recvBy,
     date: recvDate
@@ -7000,6 +7021,7 @@ function promptNextLabel(){
     document.getElementById('lbl-qty').value = next.qty;
     document.getElementById('lbl-po').value = next.po;
     document.getElementById('lbl-wo').value = next.wo;
+    document.getElementById('lbl-loc').value = next.loc||'';
     document.getElementById('lbl-cert').value = next.cert;
     document.getElementById('lbl-recv').value = next.recv;
     document.getElementById('lbl-date').value = next.date;
