@@ -2415,6 +2415,7 @@ async function pullRemoteDB(){
     restoreUsersFromDB();
     dedupeMessages();
     try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
+    if(curUser) updateDMBadges(); // keep the unread badge live even on pages other than Messages
     if(curUser && typeof navigate === 'function' && currentPage) navigate(currentPage);
   }catch(e){ /* offline — keep showing last known data */ }
 }
@@ -2969,6 +2970,9 @@ const NAV=[
     {id:'dash',icon:'◈',label:'Dashboard',tip:'Your personalised home page — today\'s tasks, alerts and a quick overview'},
     {id:'kpi',icon:'◆',label:'KPI Tracker',tip:'Real-time performance stats for people, machines and job output',adminOnly:true},
   ]},
+  {section:'Messages',items:[
+    {id:'messages',icon:'💬',label:'Messages',tip:'Announcements, team chat and direct messages'},
+  ]},
   {section:'My Work',items:[
     {id:'orders',icon:'▦',label:'Works orders',tip:'Create, track and manage all customer works orders and job staging'},
     {id:'routing',icon:'⇢',label:'Routing',tip:'View and reorder the operation sequence (routing) for each job'},
@@ -3002,7 +3006,6 @@ const NAV=[
     {id:'calendar',icon:'📅',label:'Calendar',tip:'Monthly view of jobs, holidays, calibration and maintenance due dates'},
     {id:'holidays',icon:'🌴',label:'Holidays',tip:'Request and approve staff holiday'},
     {id:'pm',icon:'🔧',label:'Preventative maint.',tip:'Scheduled machine maintenance tasks and due dates'},
-    {id:'messages',icon:'💬',label:'Messages',tip:'Announcements, team chat and direct messages'},
   ]},
   {section:'System',items:[{id:'admin',icon:'⊙',label:'Admin',tip:'User accounts, permissions, company settings and system documents',adminOnly:true}]},
 ];
