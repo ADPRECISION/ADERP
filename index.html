@@ -2337,6 +2337,18 @@ function siteKeyHeaders(extra){
 function syncUsersIntoDB(){
   db._users = USERS;
 }
+
+// One-time cleanup for duplicate messages created by an old merge bug
+// (marking a message "read" used to make the server treat it as a new message).
+function dedupeMessages(){
+  if(!Array.isArray(db.messages)) return;
+  const seen = new Set();
+  db.messages = db.messages.filter(m=>{
+    if(seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  });
+}
 function restoreUsersFromDB(){
   if(Array.isArray(db._users) && db._users.length) USERS = db._users;
 }
@@ -2374,6 +2386,7 @@ async function loadDB(){
       if(parsed){
         db = parsed;
         restoreUsersFromDB();
+        dedupeMessages();
         try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
         return true;
       }
@@ -2381,7 +2394,7 @@ async function loadDB(){
   }catch(e){ console.error('Could not reach server, falling back to local cache:', e); }
   try{
     const raw = localStorage.getItem(DB_STORAGE_KEY);
-    if(raw){ db = JSON.parse(raw); restoreUsersFromDB(); return true; }
+    if(raw){ db = JSON.parse(raw); restoreUsersFromDB(); dedupeMessages(); return true; }
   }catch(e){ console.error('Failed to load cached data, starting fresh:', e); }
   return false;
 }
@@ -2400,6 +2413,7 @@ async function pullRemoteDB(){
     if(db._updatedAt && parsed._updatedAt && parsed._updatedAt <= db._updatedAt) return; // nothing new
     db = parsed;
     restoreUsersFromDB();
+    dedupeMessages();
     try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
     if(curUser && typeof navigate === 'function' && currentPage) navigate(currentPage);
   }catch(e){ /* offline — keep showing last known data */ }
