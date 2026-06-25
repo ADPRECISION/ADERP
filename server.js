@@ -59,7 +59,19 @@ function mergeTable(name, serverRows, incomingRows) {
     serverRows.forEach(r => { if (r && r[key] != null) byKey.set(r[key], r); });
     // Incoming (the save that's landing now) wins on a genuine same-record conflict,
     // but anything that only exists on the server side (added by someone else) survives.
-    incomingRows.forEach(r => { if (r && r[key] != null) byKey.set(r[key], r); });
+    incomingRows.forEach(r => {
+      if (r == null || r[key] == null) return;
+      // Messages: readBy is a per-recipient list, mutated independently by whoever opens
+      // the channel. Last-write-wins would let one reader's save erase another reader's
+      // entry, so union the two lists instead of blindly overwriting.
+      if (name === 'messages' && Array.isArray(r.readBy)) {
+        const existing = byKey.get(r[key]);
+        if (existing && Array.isArray(existing.readBy)) {
+          r = { ...r, readBy: Array.from(new Set([...existing.readBy, ...r.readBy])) };
+        }
+      }
+      byKey.set(r[key], r);
+    });
     return Array.from(byKey.values());
   }
   if (LOG_TABLES.includes(name)) {

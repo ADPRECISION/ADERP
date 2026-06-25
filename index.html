@@ -4082,7 +4082,7 @@ function renderDash(){
     if(pending.length) todos.push({icon:'🌴',text:`${pending.length} holiday request${pending.length>1?'s':''} awaiting approval`,sub:'Click to review',color:'var(--amber)',click:`navToPendingHolidays()`});
   }
   // Unread DMs
-  const unread=(db.messages||[]).filter(m=>m.to===name&&!m.read).length;
+  const unread=(db.messages||[]).filter(m=>m.to===name&&isMsgUnreadFor(m,name)).length;
   if(unread) todos.push({icon:'💬',text:`${unread} unread message${unread>1?'s':''}`,sub:'Click to open',color:'var(--purple)',click:`navigate('messages')`});
 
   const todoEl=document.getElementById('dash-todo');
@@ -9988,13 +9988,28 @@ function renderMessages(){
   if(activeChan) openChannel(activeChan);
 }
 
+// A message's read state is per-recipient (readBy: array of names who've seen it),
+// since broadcast channels (announce/general) have many recipients and a single
+// shared boolean can't represent "read by Alice, unread by Bob" for the same message.
+// Falls back to the legacy single `read` boolean for messages saved before this existed.
+function isMsgUnreadFor(m, name){
+  if(m.from===name) return false;
+  if(Array.isArray(m.readBy)) return !m.readBy.includes(name);
+  return !m.read;
+}
+function markMsgReadFor(m, name){
+  if(!Array.isArray(m.readBy)) m.readBy=m.read?[m.to||name]:[];
+  if(!m.readBy.includes(name)) m.readBy.push(name);
+  m.read=true; // keep legacy field in sync for any old code paths still reading it
+}
+
 function updateDMBadges(){
   if(!db.messages||!curUser) return;
 
   // ── Channel unread counts (messages not sent by me, not yet read) ──
   const chanUnread={
-    announce: db.messages.filter(m=>m.chan==='announce'&&m.from!==curUser.name&&!m.read).length,
-    general:  db.messages.filter(m=>m.chan==='general' &&m.from!==curUser.name&&!m.read).length,
+    announce: db.messages.filter(m=>m.chan==='announce'&&isMsgUnreadFor(m,curUser.name)).length,
+    general:  db.messages.filter(m=>m.chan==='general' &&isMsgUnreadFor(m,curUser.name)).length,
   };
   _setChanBadge('msg-chan-announce', 'chan-badge-announce', chanUnread.announce);
   _setChanBadge('msg-chan-general',  'chan-badge-general',  chanUnread.general);
@@ -10003,13 +10018,13 @@ function updateDMBadges(){
   USERS.filter(u=>u.name!==curUser.name).forEach(u=>{
     const el=document.getElementById('msg-dm-'+u.name.replace(/\s/g,'_'));
     if(!el) return;
-    const unread=db.messages.filter(m=>m.chan==='dm'&&m.from===u.name&&m.to===curUser.name&&!m.read).length;
+    const unread=db.messages.filter(m=>m.chan==='dm'&&m.from===u.name&&m.to===curUser.name&&isMsgUnreadFor(m,curUser.name)).length;
     _setChanBadge(null, 'dm-unread-badge', unread, el);
   });
 
   // ── Nav tab total (DMs + channels) ──
   const totalUnread=
-    db.messages.filter(m=>m.chan==='dm'&&m.to===curUser.name&&!m.read).length +
+    db.messages.filter(m=>m.chan==='dm'&&m.to===curUser.name&&isMsgUnreadFor(m,curUser.name)).length +
     Object.values(chanUnread).reduce((a,b)=>a+b,0);
   const navBadge=document.getElementById('nav-messages-badge');
   if(navBadge){
@@ -10062,13 +10077,13 @@ function openChannel(chan){
   let msgs;
   if(isDM){
     msgs=db.messages.filter(m=>m.chan==='dm'&&((m.from===curUser.name&&m.to===dmPartner)||(m.from===dmPartner&&m.to===curUser.name)));
-    msgs.filter(m=>m.to===curUser.name&&!m.read).forEach(m=>m.read=true);
+    msgs.filter(m=>m.to===curUser.name&&isMsgUnreadFor(m,curUser.name)).forEach(m=>markMsgReadFor(m,curUser.name));
     updateDMBadges();
     inputArea.style.display='flex';
   } else {
     msgs=db.messages.filter(m=>m.chan===chan);
-    // Mark channel messages as read (excluding my own)
-    msgs.filter(m=>m.from!==curUser.name&&!m.read).forEach(m=>m.read=true);
+    // Mark channel messages as read (excluding my own) — per-recipient, doesn't affect other users' read state
+    msgs.filter(m=>isMsgUnreadFor(m,curUser.name)).forEach(m=>markMsgReadFor(m,curUser.name));
     updateDMBadges();
     inputArea.style.display=(!isAnnounce||isAdmin())?'flex':'none';
   }
@@ -10110,6 +10125,7 @@ function sendMessage(){
     date:todayISO(),
     time,
     read:false,
+    readBy:[],
   });
 
   inp.value='';
