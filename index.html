@@ -39,6 +39,8 @@ button.success{background:var(--green);color:#fff;border-color:var(--green)}
 button.success:hover{opacity:.9}
 button.danger{border-color:var(--red);color:var(--red);background:var(--red-dim)}
 button.danger:hover{background:var(--red);color:#fff}
+button.amber{background:var(--amber);color:#fff;border-color:var(--amber)}
+button.amber:hover{opacity:.9}
 button.ghost{background:transparent;border-color:transparent;color:var(--txt3);padding:5px 10px}
 button.ghost:hover{color:var(--txt);background:var(--bg4)}
 button.sm{padding:4px 10px;font-size:11px}
@@ -1427,6 +1429,12 @@ Tel: 01234 567000</textarea></div>
       <div class="fg"><label>Supplier code</label><input id="st-sup" placeholder="e.g. SUP-003"/></div>
       <div class="fg"><label>Supplier part no</label><input id="st-supref" placeholder="Supplier ref"/></div>
       <div class="fg"><label>Unit cost (£)</label><input id="st-cost" type="number" step="0.01" placeholder="0.00"/></div>
+      <div class="fg full">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="st-returnable" style="width:16px;height:16px;cursor:pointer"/>
+          Returnable item — must be checked out / checked back in (e.g. hand tools), instead of used up permanently
+        </label>
+      </div>
       <div class="fg full"><label>Notes</label><textarea id="st-notes" rows="2"></textarea></div>
     </div>
   </div>
@@ -1443,6 +1451,41 @@ Tel: 01234 567000</textarea></div>
     <div class="fg"><label>Reason (optional)</label><input id="adj-reason" placeholder="e.g. Stock check, breakage…"/></div>
   </div>
   <div class="modal-footer"><button onclick="closeModal('modal-adj')">Cancel</button><button class="primary" onclick="applyAdj()">Update qty</button></div>
+</div></div>
+
+<!-- USE STOCK MODAL -->
+<div class="modal-overlay" id="modal-use">
+<div class="modal" style="width:380px">
+  <div class="modal-head"><h3>Use stock — <span id="use-label"></span></h3><button class="ghost" onclick="closeModal('modal-use')">✕</button></div>
+  <div class="modal-content">
+    <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Currently in stock: <strong id="use-current" style="color:var(--txt)"></strong></div>
+    <div class="fg"><label>Quantity used</label><input id="use-val" type="number" step="0.01" min="0.01"/></div>
+    <div class="fg"><label>Note (optional)</label><input id="use-note" placeholder="e.g. Topping up machine sump"/></div>
+  </div>
+  <div class="modal-footer"><button onclick="closeModal('modal-use')">Cancel</button><button class="primary" onclick="applyUse()">Log usage</button></div>
+</div></div>
+
+<!-- CHECK OUT MODAL -->
+<div class="modal-overlay" id="modal-checkout">
+<div class="modal" style="width:380px">
+  <div class="modal-head"><h3>Check out — <span id="checkout-label"></span></h3><button class="ghost" onclick="closeModal('modal-checkout')">✕</button></div>
+  <div class="modal-content">
+    <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Currently available: <strong id="checkout-current" style="color:var(--txt)"></strong></div>
+    <div class="fg"><label>Quantity to check out</label><input id="checkout-val" type="number" step="1" min="1" value="1"/></div>
+    <div class="fg"><label>Who's taking it?</label><input id="checkout-by" placeholder="e.g. Slater Jay"/></div>
+    <div class="fg"><label>Note (optional)</label><input id="checkout-note" placeholder="e.g. For job WO-1042"/></div>
+  </div>
+  <div class="modal-footer"><button onclick="closeModal('modal-checkout')">Cancel</button><button class="amber" onclick="applyCheckout()">Check out</button></div>
+</div></div>
+
+<!-- RETURN MODAL -->
+<div class="modal-overlay" id="modal-return">
+<div class="modal" style="width:440px">
+  <div class="modal-head"><h3>Return — <span id="return-label"></span></h3><button class="ghost" onclick="closeModal('modal-return')">✕</button></div>
+  <div class="modal-content">
+    <div id="return-list"></div>
+  </div>
+  <div class="modal-footer"><button onclick="closeModal('modal-return')">Close</button></div>
 </div></div>
 
 <!-- TOOL MODAL -->
@@ -2297,12 +2340,15 @@ let orderTabFilter = 'all';
 let poTabFilter = 'all';
 let toolTabFilter = 'all';
 let adjTarget = null; // {type:'stock'|'material', idx}
+let useTarget = null; // {idx} — stock item being consumed via the Use modal
+let checkoutTarget = null; // {idx} — returnable stock item being checked out
+let returnTarget = null; // {idx} — returnable stock item being returned
 
 // ═══════════════════ DB ═══════════════════
 let db = {
   settings:{company:'A&D Precision Ltd', rate:45, addr:'A&D Precision Ltd\nUnit 4, Industrial Estate\nTown, County, PC1 2AB\nTel: 01234 567000', calWarnDays:30},
   customers:[], suppliers:[], material:[], stock:[], tools:[], programs:[], parts:[],
-  orders:[], pos:[], dns:[], ncrs:[], timeLogs:[], isoDocs:[], gauges:[], machines:[], staging:[], finishedParts:[], scrapLog:[], sparesStock:[], holidays:[], pm:[], messages:[], rfqs:[], coolantChecks:[], coolantProducts:[]
+  orders:[], pos:[], dns:[], ncrs:[], timeLogs:[], isoDocs:[], gauges:[], machines:[], staging:[], finishedParts:[], scrapLog:[], sparesStock:[], holidays:[], pm:[], messages:[], rfqs:[], coolantChecks:[], coolantProducts:[], stockUsage:[], stockCheckouts:[]
 };
 
 // ── PERSISTENCE ──
@@ -2819,7 +2865,7 @@ const BACKUP_TABLES = [
   'customers','suppliers','material','stock','tools','programs','parts',
   'orders','pos','dns','ncrs','timeLogs','isoDocs','gauges','machines',
   'staging','finishedParts','scrapLog','sparesStock','holidays','pm',
-  'messages','rfqs','coolantChecks','coolantProducts'
+  'messages','rfqs','coolantChecks','coolantProducts','stockUsage','stockCheckouts'
 ];
 
 function exportFullBackup(){
@@ -6322,6 +6368,116 @@ function applyAdj(){
   toast('Quantity updated','success');
 }
 
+// ═══════════════════ USE STOCK (consumables) ═══════════════════
+function openUse(idx){
+  useTarget={idx};
+  const item=db.stock[idx];
+  document.getElementById('use-label').textContent=item.code;
+  document.getElementById('use-current').textContent=`${item.qty} ${item.unit}`;
+  document.getElementById('use-val').value='';
+  document.getElementById('use-note').value='';
+  openModal('modal-use');
+}
+function applyUse(){
+  if(!useTarget) return;
+  const item=db.stock[useTarget.idx];
+  const qtyUsed=parseFloat(document.getElementById('use-val').value);
+  if(isNaN(qtyUsed)||qtyUsed<=0){toast('Enter a quantity greater than 0','error');return;}
+  if(qtyUsed>item.qty){toast(`Only ${item.qty} ${item.unit} in stock`,'error');return;}
+  item.qty=Math.round((item.qty-qtyUsed)*100)/100;
+  if(!db.stockUsage) db.stockUsage=[];
+  db.stockUsage.push({
+    id:Date.now(),
+    code:item.code,
+    desc:item.desc,
+    qty:qtyUsed,
+    unit:item.unit,
+    by:curUser?curUser.name:'Unknown',
+    note:document.getElementById('use-note').value.trim(),
+    date:todayISO(),
+    time:new Date().toTimeString().slice(0,5),
+  });
+  closeModal('modal-use');
+  renderStock();
+  saveDB();
+  toast(`Logged ${qtyUsed} ${item.unit} used`,'success');
+}
+
+// ═══════════════════ CHECK OUT / RETURN (returnable items, e.g. hand tools) ═══════════════════
+function openCheckout(idx){
+  checkoutTarget={idx};
+  const item=db.stock[idx];
+  document.getElementById('checkout-label').textContent=item.code;
+  document.getElementById('checkout-current').textContent=`${item.qty} ${item.unit}`;
+  document.getElementById('checkout-val').value=1;
+  document.getElementById('checkout-by').value=curUser?curUser.name:'';
+  document.getElementById('checkout-note').value='';
+  openModal('modal-checkout');
+}
+function applyCheckout(){
+  if(!checkoutTarget) return;
+  const item=db.stock[checkoutTarget.idx];
+  const qty=parseFloat(document.getElementById('checkout-val').value);
+  const by=document.getElementById('checkout-by').value.trim();
+  if(isNaN(qty)||qty<=0){toast('Enter a quantity greater than 0','error');return;}
+  if(qty>item.qty){toast(`Only ${item.qty} ${item.unit} available`,'error');return;}
+  if(!by){toast("Enter who's taking it",'error');return;}
+  item.qty=Math.round((item.qty-qty)*100)/100;
+  if(!db.stockCheckouts) db.stockCheckouts=[];
+  db.stockCheckouts.push({
+    id:Date.now(),
+    code:item.code,
+    desc:item.desc,
+    qty,
+    unit:item.unit,
+    by,
+    note:document.getElementById('checkout-note').value.trim(),
+    outDate:todayISO(),
+    outTime:new Date().toTimeString().slice(0,5),
+    returned:false,
+    inDate:null,
+  });
+  closeModal('modal-checkout');
+  renderStock();
+  saveDB();
+  toast(`Checked out to ${by}`,'success');
+}
+function openReturn(idx){
+  returnTarget={idx};
+  const item=db.stock[idx];
+  document.getElementById('return-label').textContent=item.code;
+  renderReturnList();
+  openModal('modal-return');
+}
+function renderReturnList(){
+  if(!returnTarget) return;
+  const item=db.stock[returnTarget.idx];
+  const outstanding=(db.stockCheckouts||[]).filter(c=>c.code===item.code&&!c.returned);
+  const list=document.getElementById('return-list');
+  list.innerHTML=outstanding.length?outstanding.map(c=>{
+    const cid=db.stockCheckouts.indexOf(c);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600">${c.by} <span style="color:var(--txt3);font-weight:400">— ${c.qty} ${c.unit}</span></div>
+        <div style="font-size:11px;color:var(--txt3)">Checked out ${c.outDate} ${c.outTime}${c.note?' · '+c.note:''}</div>
+      </div>
+      <button class="success sm" style="font-weight:700" onclick="applyReturn(${cid})">📥 Mark returned</button>
+    </div>`;
+  }).join(''):`<div class="empty-state" style="padding:20px"><p>Nothing currently checked out</p></div>`;
+}
+function applyReturn(checkoutId){
+  const c=db.stockCheckouts[checkoutId];
+  if(!c||c.returned) return;
+  c.returned=true;
+  c.inDate=todayISO();
+  const item=db.stock.find(s=>s.code===c.code);
+  if(item) item.qty=Math.round((item.qty+c.qty)*100)/100;
+  renderReturnList();
+  renderStock();
+  saveDB();
+  toast(`${c.by} returned ${c.qty} ${c.unit}`,'success');
+}
+
 // ═══════════════════ MATERIAL LABELS ═══════════════════
 let currentLabelData=null;
 function genLabel(){
@@ -6414,9 +6570,23 @@ function renderStock(){
     const idx=db.stock.indexOf(s);
     const status=getStatus(s);
     const sc=status==='Critical'?'b-red':status==='Low'?'b-amber':'b-green';
+    const outCount=(db.stockCheckouts||[]).filter(c=>c.code===s.code&&!c.returned).length;
+    let actionBtns='';
+    if(!isTab && s.returnable){
+      actionBtns=`
+        <button class="amber sm" style="font-weight:700" onclick="openCheckout(${idx})" data-tip="Check this item out to someone">📤 Check out</button>
+        <button class="success sm" style="font-weight:700" onclick="openReturn(${idx})" ${outCount?'':'disabled'} data-tip="${outCount?`${outCount} outstanding — mark as returned`:'Nothing currently checked out'}">📥 Return${outCount?` (${outCount})`:''}</button>`;
+    } else if(!isTab){
+      actionBtns=`<button class="primary sm" style="font-weight:700" onclick="openUse(${idx})" data-tip="Log how much of this you just used">✅ Use</button>`;
+    }
     return `<tr>
       <td class="td-mono" style="color:var(--accent)">${s.code}</td>
-      <td>${s.desc}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>${s.desc}</span>
+          ${actionBtns}
+        </div>
+      </td>
       <td>${badge(s.cat,'b-gray')}</td>
       <td class="td-mono ${s.qty<=s.safety?'stock-warn':'stock-ok'}">${s.qty}</td>
       <td class="td-muted">${s.unit}</td>
@@ -6441,7 +6611,9 @@ function saveStockItem(){
     safety:parseInt(document.getElementById('st-safety').value)||0,
     reorder:parseInt(document.getElementById('st-reorder').value)||1,
     sup:document.getElementById('st-sup').value,supref:document.getElementById('st-supref').value,
-    cost:parseFloat(document.getElementById('st-cost').value)||0,notes:document.getElementById('st-notes').value
+    cost:parseFloat(document.getElementById('st-cost').value)||0,
+    returnable:document.getElementById('st-returnable').checked,
+    notes:document.getElementById('st-notes').value
   });
   closeModal('modal-stock'); renderStock(); toast('Stock item added','success');
 }

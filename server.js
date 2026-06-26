@@ -45,10 +45,10 @@ const KEY_FIELDS = {
   orders: 'id', pos: 'id', dns: 'id', ncrs: 'id',
   isoDocs: 'ref', gauges: 'id', machines: 'name',
   finishedParts: 'id', holidays: 'id', pm: 'id', rfqs: 'id', coolantChecks: 'id',
-  coolantProducts: 'code', messages: 'id',
+  coolantProducts: 'code', messages: 'id', stockCheckouts: 'id',
 };
 // Append-only log tables with no natural unique key — unioned and de-duped instead
-const LOG_TABLES = ['timeLogs', 'staging', 'scrapLog', 'sparesStock'];
+const LOG_TABLES = ['timeLogs', 'staging', 'scrapLog', 'sparesStock', 'stockUsage'];
 
 function mergeTable(name, serverRows, incomingRows) {
   serverRows = serverRows || [];
