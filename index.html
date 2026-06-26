@@ -1459,7 +1459,7 @@ Tel: 01234 567000</textarea></div>
   <div class="modal-head"><h3>Use stock — <span id="use-label"></span></h3><button class="ghost" onclick="closeModal('modal-use')">✕</button></div>
   <div class="modal-content">
     <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Currently in stock: <strong id="use-current" style="color:var(--txt)"></strong></div>
-    <div class="fg"><label>Quantity used</label><input id="use-val" type="number" step="0.01" min="0.01"/></div>
+    <div class="fg"><label>Quantity used</label><input id="use-val" type="number" step="1" min="1"/></div>
     <div class="fg"><label>Note (optional)</label><input id="use-note" placeholder="e.g. Topping up machine sump"/></div>
   </div>
   <div class="modal-footer"><button onclick="closeModal('modal-use')">Cancel</button><button class="primary" onclick="applyUse()">Log usage</button></div>
