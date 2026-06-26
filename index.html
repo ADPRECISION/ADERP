@@ -706,7 +706,7 @@ tbody tr:hover td{background:var(--bg3)}
           </div>
           <div id="tooling-autopo-alert"></div>
           <div class="card"><div class="tbl-wrap"><table>
-            <thead><tr><th>Code</th><th>Description</th><th>Category</th><th>Qty</th><th>Unit</th><th>Safety</th><th>Reorder qty</th><th>Supplier</th><th>Unit cost</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th></th><th>Code</th><th>Description</th><th>Category</th><th>Qty</th><th>Unit</th><th>Safety</th><th>Reorder qty</th><th>Supplier</th><th>Unit cost</th><th>Status</th><th></th></tr></thead>
             <tbody id="tooling-stock-tbody"></tbody>
           </table></div></div>
         </div>
@@ -720,7 +720,7 @@ tbody tr:hover td{background:var(--bg3)}
           </div>
           <div id="autopo-alert"></div>
           <div class="card"><div class="tbl-wrap"><table>
-            <thead><tr><th>Code</th><th>Description</th><th>Category</th><th>Qty</th><th>Unit</th><th>Safety</th><th>Reorder qty</th><th>Supplier</th><th>Unit cost</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th></th><th>Code</th><th>Description</th><th>Category</th><th>Qty</th><th>Unit</th><th>Safety</th><th>Reorder qty</th><th>Supplier</th><th>Unit cost</th><th>Status</th><th></th></tr></thead>
             <tbody id="stock-tbody"></tbody>
           </table></div></div>
         </div>
@@ -6572,21 +6572,17 @@ function renderStock(){
     const sc=status==='Critical'?'b-red':status==='Low'?'b-amber':'b-green';
     const outCount=(db.stockCheckouts||[]).filter(c=>c.code===s.code&&!c.returned).length;
     let actionBtns='';
-    if(!isTab && s.returnable){
+    if(s.returnable){
       actionBtns=`
         <button class="amber sm" style="font-weight:700" onclick="openCheckout(${idx})" data-tip="Check this item out to someone">📤 Check out</button>
         <button class="success sm" style="font-weight:700" onclick="openReturn(${idx})" ${outCount?'':'disabled'} data-tip="${outCount?`${outCount} outstanding — mark as returned`:'Nothing currently checked out'}">📥 Return${outCount?` (${outCount})`:''}</button>`;
-    } else if(!isTab){
+    } else {
       actionBtns=`<button class="primary sm" style="font-weight:700" onclick="openUse(${idx})" data-tip="Log how much of this you just used">✅ Use</button>`;
     }
     return `<tr>
+      <td style="white-space:nowrap">${actionBtns}</td>
       <td class="td-mono" style="color:var(--accent)">${s.code}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span>${s.desc}</span>
-          ${actionBtns}
-        </div>
-      </td>
+      <td>${s.desc}</td>
       <td>${badge(s.cat,'b-gray')}</td>
       <td class="td-mono ${s.qty<=s.safety?'stock-warn':'stock-ok'}">${s.qty}</td>
       <td class="td-muted">${s.unit}</td>
@@ -6599,7 +6595,7 @@ function renderStock(){
         <button class="ghost xs" onclick="openAdj('stock',${idx})">Adjust</button>
         ${s.qty<=s.safety&&s.sup?`<button class="ghost xs" style="color:var(--accent)" onclick="raisePOFromItem('${s.code}')" data-tip="Raise a purchase order to restock this item">PO</button>`:''}
       </td>
-    </tr>`;}).join(''):`<tr><td colspan="11"><div class="empty-state"><p>No stock items found</p></div></td></tr>`;
+    </tr>`;}).join(''):`<tr><td colspan="12"><div class="empty-state"><p>No stock items found</p></div></td></tr>`;
 }
 
 function saveStockItem(){
