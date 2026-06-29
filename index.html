@@ -1453,16 +1453,28 @@ Tel: 01234 567000</textarea></div>
   <div class="modal-footer"><button onclick="closeModal('modal-adj')">Cancel</button><button class="primary" onclick="applyAdj()">Update qty</button></div>
 </div></div>
 
-<!-- USE STOCK MODAL -->
-<div class="modal-overlay" id="modal-use">
+<!-- TAKE STOCK MODAL -->
+<div class="modal-overlay" id="modal-take">
 <div class="modal" style="width:380px">
-  <div class="modal-head"><h3>Use stock — <span id="use-label"></span></h3><button class="ghost" onclick="closeModal('modal-use')">✕</button></div>
+  <div class="modal-head"><h3>Take stock — <span id="take-label"></span></h3><button class="ghost" onclick="closeModal('modal-take')">✕</button></div>
   <div class="modal-content">
-    <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Currently in stock: <strong id="use-current" style="color:var(--txt)"></strong></div>
-    <div class="fg"><label>Quantity used</label><input id="use-val" type="number" step="1" min="1"/></div>
-    <div class="fg"><label>Note (optional)</label><input id="use-note" placeholder="e.g. Topping up machine sump"/></div>
+    <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Currently in stock: <strong id="take-current" style="color:var(--txt)"></strong></div>
+    <div class="fg"><label>Quantity taken</label><input id="take-val" type="number" step="1" min="1"/></div>
+    <div class="fg"><label>Note (optional)</label><input id="take-note" placeholder="e.g. Topping up machine sump"/></div>
   </div>
-  <div class="modal-footer"><button onclick="closeModal('modal-use')">Cancel</button><button class="primary" onclick="applyUse()">Log usage</button></div>
+  <div class="modal-footer"><button onclick="closeModal('modal-take')">Cancel</button><button class="primary" onclick="applyTake()">Log take</button></div>
+</div></div>
+
+<!-- RETURN TO STOCK MODAL -->
+<div class="modal-overlay" id="modal-stock-return">
+<div class="modal" style="width:380px">
+  <div class="modal-head"><h3>Return to stock — <span id="stock-return-label"></span></h3><button class="ghost" onclick="closeModal('modal-stock-return')">✕</button></div>
+  <div class="modal-content">
+    <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Currently in stock: <strong id="stock-return-current" style="color:var(--txt)"></strong></div>
+    <div class="fg"><label>Quantity returned</label><input id="stock-return-val" type="number" step="1" min="1"/></div>
+    <div class="fg"><label>Note (optional)</label><input id="stock-return-note" placeholder="e.g. Didn't need them after all"/></div>
+  </div>
+  <div class="modal-footer"><button onclick="closeModal('modal-stock-return')">Cancel</button><button class="success" onclick="applyStockReturn()">Log return</button></div>
 </div></div>
 
 <!-- CHECK OUT MODAL -->
@@ -6368,20 +6380,20 @@ function applyAdj(){
   toast('Quantity updated','success');
 }
 
-// ═══════════════════ USE STOCK (consumables) ═══════════════════
+// ═══════════════════ TAKE / RETURN STOCK (consumables) ═══════════════════
 function openUse(idx){
   useTarget={idx};
   const item=db.stock[idx];
-  document.getElementById('use-label').textContent=item.code;
-  document.getElementById('use-current').textContent=`${item.qty} ${item.unit}`;
-  document.getElementById('use-val').value='';
-  document.getElementById('use-note').value='';
-  openModal('modal-use');
+  document.getElementById('take-label').textContent=item.code;
+  document.getElementById('take-current').textContent=`${item.qty} ${item.unit}`;
+  document.getElementById('take-val').value='';
+  document.getElementById('take-note').value='';
+  openModal('modal-take');
 }
-function applyUse(){
+function applyTake(){
   if(!useTarget) return;
   const item=db.stock[useTarget.idx];
-  const qtyUsed=parseFloat(document.getElementById('use-val').value);
+  const qtyUsed=parseFloat(document.getElementById('take-val').value);
   if(isNaN(qtyUsed)||qtyUsed<=0){toast('Enter a quantity greater than 0','error');return;}
   if(qtyUsed>item.qty){toast(`Only ${item.qty} ${item.unit} in stock`,'error');return;}
   item.qty=Math.round((item.qty-qtyUsed)*100)/100;
@@ -6392,15 +6404,49 @@ function applyUse(){
     desc:item.desc,
     qty:qtyUsed,
     unit:item.unit,
+    type:'take',
     by:curUser?curUser.name:'Unknown',
-    note:document.getElementById('use-note').value.trim(),
+    note:document.getElementById('take-note').value.trim(),
     date:todayISO(),
     time:new Date().toTimeString().slice(0,5),
   });
-  closeModal('modal-use');
+  closeModal('modal-take');
   renderStock();
   saveDB();
-  toast(`Logged ${qtyUsed} ${item.unit} used`,'success');
+  toast(`Logged ${qtyUsed} ${item.unit} taken`,'success');
+}
+function openStockReturn(idx){
+  useTarget={idx};
+  const item=db.stock[idx];
+  document.getElementById('stock-return-label').textContent=item.code;
+  document.getElementById('stock-return-current').textContent=`${item.qty} ${item.unit}`;
+  document.getElementById('stock-return-val').value='';
+  document.getElementById('stock-return-note').value='';
+  openModal('modal-stock-return');
+}
+function applyStockReturn(){
+  if(!useTarget) return;
+  const item=db.stock[useTarget.idx];
+  const qtyReturned=parseFloat(document.getElementById('stock-return-val').value);
+  if(isNaN(qtyReturned)||qtyReturned<=0){toast('Enter a quantity greater than 0','error');return;}
+  item.qty=Math.round((item.qty+qtyReturned)*100)/100;
+  if(!db.stockUsage) db.stockUsage=[];
+  db.stockUsage.push({
+    id:Date.now(),
+    code:item.code,
+    desc:item.desc,
+    qty:qtyReturned,
+    unit:item.unit,
+    type:'return',
+    by:curUser?curUser.name:'Unknown',
+    note:document.getElementById('stock-return-note').value.trim(),
+    date:todayISO(),
+    time:new Date().toTimeString().slice(0,5),
+  });
+  closeModal('modal-stock-return');
+  renderStock();
+  saveDB();
+  toast(`Logged ${qtyReturned} ${item.unit} returned`,'success');
 }
 
 // ═══════════════════ CHECK OUT / RETURN (returnable items, e.g. hand tools) ═══════════════════
@@ -6577,7 +6623,9 @@ function renderStock(){
         <button class="amber sm" style="font-weight:700" onclick="openCheckout(${idx})" data-tip="Check this item out to someone">📤 Check out</button>
         <button class="success sm" style="font-weight:700" onclick="openReturn(${idx})" ${outCount?'':'disabled'} data-tip="${outCount?`${outCount} outstanding — mark as returned`:'Nothing currently checked out'}">📥 Return${outCount?` (${outCount})`:''}</button>`;
     } else {
-      actionBtns=`<button class="primary sm" style="font-weight:700" onclick="openUse(${idx})" data-tip="Log how much of this you just used">✅ Use</button>`;
+      actionBtns=`
+        <button class="primary sm" style="font-weight:700" onclick="openUse(${idx})" data-tip="Log how much of this you just took">✅ Take</button>
+        <button class="success sm" style="font-weight:700" onclick="openStockReturn(${idx})" data-tip="Put some back into stock">↩️ Return</button>`;
     }
     return `<tr>
       <td style="white-space:nowrap">${actionBtns}</td>
