@@ -1199,7 +1199,7 @@ tbody tr:hover td{background:var(--bg3)}
         </div>
         <div class="search-row"><input type="text" placeholder="🔍  Search suppliers…" oninput="renderSuppliers()" id="sup-search"/></div>
         <div class="card"><div class="tbl-wrap"><table>
-          <thead><tr><th>Code</th><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Lead time</th><th>Categories</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Lead time</th><th>Categories</th><th>Status</th><th></th></tr></thead>
           <tbody id="supplier-tbody"></tbody>
         </table></div></div>
       </div>
@@ -1413,7 +1413,7 @@ Snainton, YO13 9BD</textarea></div>
       <div class="fg"><label>Location</label><input id="m-loc" placeholder="e.g. Rack A1"/></div>
       <div class="fg"><label>PO# purchased on</label><input id="m-po" placeholder="e.g. PO-001"/></div>
       <div class="fg"><label>Allocated WO</label><input id="m-alloc" placeholder="e.g. WO-001 or STOCK" value="STOCK"/></div>
-      <div class="fg"><label>Supplier code</label><input id="m-sup" placeholder="e.g. SUP-001"/></div>
+      <div class="fg"><label>Supplier</label><select id="m-sup"><option value="">— None —</option></select></div>
       <div class="fg"><label>Unit cost (£)</label><input id="m-cost" type="number" step="0.01" placeholder="0.00"/></div>
       <div class="fg"><label>Cert / heat number</label><input id="m-cert" placeholder="e.g. CERT-M24-0091"/></div>
       <div class="fg full"><label>Notes</label><textarea id="m-notes" rows="2"></textarea></div>
@@ -1435,7 +1435,7 @@ Snainton, YO13 9BD</textarea></div>
       <div class="fg"><label>Unit</label><select id="st-unit"><option>pcs</option><option>box</option><option>litre</option><option>kg</option><option>roll</option><option>pack</option></select></div>
       <div class="fg"><label>Safety stock (min)</label><input id="st-safety" type="number" value="2" min="0"/></div>
       <div class="fg"><label>Reorder qty</label><input id="st-reorder" type="number" value="10" min="1"/></div>
-      <div class="fg"><label>Supplier code</label><input id="st-sup" placeholder="e.g. SUP-003"/></div>
+      <div class="fg"><label>Supplier</label><select id="st-sup"><option value="">— None —</option></select></div>
       <div class="fg"><label>Supplier part no</label><input id="st-supref" placeholder="Supplier ref"/></div>
       <div class="fg"><label>Unit cost (£)</label><input id="st-cost" type="number" step="0.01" placeholder="0.00"/></div>
       <div class="fg full">
@@ -1857,7 +1857,6 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-head"><h3>Add supplier</h3><button class="ghost" onclick="closeModal('modal-supplier')">✕</button></div>
   <div class="modal-content">
     <div class="fg2">
-      <div class="fg"><label>Supplier code</label><input id="sup-code" placeholder="e.g. SUP-006"/></div>
       <div class="fg"><label>Status</label><select id="sup-status"><option>Approved</option><option>Conditional</option><option>Pending approval</option><option>Suspended</option></select></div>
       <div class="fg full"><label>Company name</label><input id="sup-name"/></div>
       <div class="fg"><label>Contact name</label><input id="sup-contact"/></div>
@@ -8724,7 +8723,6 @@ function renderSuppliers(){
   document.getElementById('supplier-tbody').innerHTML=sups.length?sups.map((s)=>{
     const idx=db.suppliers.indexOf(s);
     return `<tr>
-      <td class="td-mono">${s.code}</td>
       <td><strong>${s.name}</strong></td>
       <td>${s.contact}</td><td class="td-mono">${s.phone}</td>
       <td style="font-size:11.5px">${s.email}</td>
@@ -8732,17 +8730,23 @@ function renderSuppliers(){
       <td style="font-size:11.5px">${s.cats}</td>
       <td>${statusBadge(s.status)}</td>
       <td><button class="ghost xs danger" onclick="db.suppliers.splice(${idx},1);renderSuppliers()" data-tip="Remove this supplier">✕</button></td>
-    </tr>`;}).join(''):`<tr><td colspan="9"><div class="empty-state"><p>No suppliers found</p></div></td></tr>`;
+    </tr>`;}).join(''):`<tr><td colspan="8"><div class="empty-state"><p>No suppliers found</p></div></td></tr>`;
+}
+function genSupplierCode(name){
+  const base=(name||'SUP').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'SUP';
+  let n=1, code;
+  do { code=`${base}-${String(n).padStart(3,'0')}`; n++; } while((db.suppliers||[]).some(s=>s.code===code));
+  return code;
 }
 function saveSupplier(){
   const name=document.getElementById('sup-name').value.trim();
-  const code=document.getElementById('sup-code').value.trim();
-  if(!name||!code){toast('Code and company name are required','error');return;}
+  if(!name){toast('Company name is required','error');return;}
+  const code=genSupplierCode(name);
   db.suppliers.push({code,name,contact:document.getElementById('sup-contact').value,
     phone:document.getElementById('sup-phone').value,email:document.getElementById('sup-email').value,
     lt:parseInt(document.getElementById('sup-lt').value)||3,cats:document.getElementById('sup-cats').value,
     status:document.getElementById('sup-status').value,addr:document.getElementById('sup-addr').value});
-  closeModal('modal-supplier'); renderSuppliers(); toast(`Supplier ${name} added`,'success');
+  closeModal('modal-supplier'); renderSuppliers(); populateOrderSelects(); toast(`Supplier ${name} added`,'success');
 }
 
 // ═══════════════════ CUSTOMERS ═══════════════════
@@ -11069,6 +11073,10 @@ function populateOrderSelects(){
   if(ptCust) ptCust.innerHTML=db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
   const poSup=document.getElementById('po-sup-sel');
   if(poSup) poSup.innerHTML=db.suppliers.map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
+  const mSup=document.getElementById('m-sup');
+  if(mSup) mSup.innerHTML='<option value="">— None —</option>'+db.suppliers.map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
+  const stSup=document.getElementById('st-sup');
+  if(stSup) stSup.innerHTML='<option value="">— None —</option>'+db.suppliers.map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
   const poAddr=document.getElementById('po-addr');
   if(poAddr) poAddr.value=db.settings.addr;
   // Gauges multi-select
