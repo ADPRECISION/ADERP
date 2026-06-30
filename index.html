@@ -5415,7 +5415,7 @@ function clockSelectJob(woId){
               📐 First-off sign-off
             </button>`:''}
 
-          ${!isConsume&&!runLocked&&(setupDone||!isSetup||op.type==='deburr'||op.type==='clean'||op.type==='pack'||op.type==='inspect')?`
+          ${!isConsume&&!runLocked&&isSetup&&setupDone?`
             <button onclick="doClockIn('${woId}',${op.idx},'run','${setupMachine}')"
               style="cursor:pointer;flex:1;min-width:140px;padding:10px 14px;background:var(--green-dim);border:2px solid var(--green);border-radius:var(--r2);color:var(--green);font-size:13px;font-weight:700;text-align:center">
               ▶ ${runStarted?'↺ Resume run':'Run'}${setupMachine?' on '+setupMachine:''}
