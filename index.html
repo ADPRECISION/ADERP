@@ -7440,6 +7440,23 @@ function openRFQ(dataAttr){
   openModal('modal-rfq');
 }
 
+// Minimum-waste standard-bar packing for a raw mm total (shared by RFQ hint + RFQ save)
+function packBarsByMm(totalMm){
+  const bars = [];
+  let remaining = totalMm;
+  for(const len of [3000,2000,1000,500]){
+    if(remaining<=0) break;
+    const n = Math.floor(remaining/len);
+    if(n>0){ bars.push({len, qty:n}); remaining -= n*len; }
+  }
+  if(remaining>0){
+    const cover = [500,1000,2000,3000].find(l=>l>=remaining) || 3000;
+    const existing = bars.find(b=>b.len===cover);
+    if(existing) existing.qty += 1; else bars.push({len:cover, qty:1});
+  }
+  return bars;
+}
+
 function updateRFQHint(){
   const val = parseInt(document.getElementById('rfq-qty-mm').value)||0;
   const min = rfqData ? rfqData.totalBarMm : 0;
@@ -7454,20 +7471,12 @@ function updateRFQHint(){
     hint.innerHTML = `Minimum needed: ${min}mm · Extra: <strong>${extra}mm</strong> (${(extra/1000).toFixed(2)}m buffer)`;
   }
 
-  // Show what standard bars this corresponds to
+  // Recalculate the bar breakdown for the requested total mm and keep rfqData in sync
+  // so that raising the RFQ/PO uses the bar order the purchaser actually sees on screen.
   if(val > 0){
-    const allLens = [3000,2000,1000,500];
-    function usable(l){ return l - 40; }
-    // Just show the raw bar breakdown for the requested total mm
-    const bars = [];
-    let remaining = val;
-    for(const len of [3000,2000,1000,500]){
-      if(remaining<=0) break;
-      const n = Math.floor(remaining/len);
-      if(n>0){ bars.push(`${n}×${len}mm`); remaining-=n*len; }
-    }
-    if(remaining>0) bars.push(`+${remaining}mm`);
-    if(breakdown) breakdown.textContent = bars.join(' + ') || `${val}mm`;
+    const bars = packBarsByMm(val);
+    if(rfqData) rfqData.barOrder = bars;
+    if(breakdown) breakdown.textContent = bars.map(b=>`${b.qty}×${b.len}mm`).join(' + ') || `${val}mm`;
   }
 }
 
