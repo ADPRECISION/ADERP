@@ -7907,6 +7907,8 @@ function runEstimate(){
   // Store the latest calculated result so "Create WO" can use it directly
   lastEstimateResult = {
     part:partDesc, qty, spares, matGrade, barDia, totalQuote, unitPrice, totalBars,
+    machiningMinsPerPart: cycleMin + secMin,
+    matCost, matCostKnown,
     custCode: document.getElementById('est-customer')?.value||'',
     custPO: document.getElementById('est-cust-po')?.value||'',
   };
@@ -8246,26 +8248,30 @@ function loadEstimate(i){
 
 function printEstimate(){
   const part = document.getElementById('est-part').value||'Estimate';
-  const resultsHtml = document.getElementById('est-results').innerHTML;
-  openPrintWindow(`<!DOCTYPE html><html><head><title>Estimate — ${part}</title>
+  if(!lastEstimateResult || lastEstimateResult.part!==part){ toast('Calculate the estimate first','error'); return; }
+  const e = lastEstimateResult;
+  const c = (v) => `£${v.toFixed(2)}`;
+  const rows = [
+    ['Machining time per part', `${e.machiningMinsPerPart.toFixed(1)} mins`],
+    ['Material cost', e.matCostKnown ? c(e.matCost) : 'TBD'],
+  ];
+  openPrintWindow(`<!DOCTYPE html><html><head><title>Quote — ${part}</title>
   <style>
-  :root{
-    --bg2:#fff;--bg3:#fff;--bg4:#f2f2f2;
-    --border:#999;--border3:#999;
-    --txt:#000;--txt2:#333;--txt3:#555;
-    --accent:#000;--accent2:#333;--accent-dim:#eee;
-    --green:#000;--amber:#000;--r2:6px;--r3:8px;--mono:'Courier New',monospace;
-  }
   body{font-family:'Courier New',monospace;padding:15mm;font-size:10pt;color:#000;background:#fff}
   h2{font-size:14pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:10px}
-  .card,.card-body{page-break-inside:avoid}
-  /* Force all result boxes to white background, black text, regardless of inline styles */
-  #results *{background:#fff !important;background-image:none !important;color:#000 !important;box-shadow:none !important;border-color:#999 !important;}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  td{padding:8px 4px;border-bottom:1px solid #ccc}
+  td:last-child{text-align:right;font-weight:600}
+  .total td{border-top:2px solid #000;border-bottom:none;font-size:13pt;font-weight:700;padding-top:12px}
   @media print{button{display:none}}</style></head><body>
-  <h2>${db.settings.company} — JOB ESTIMATE</h2>
-  <p>Date: ${new Date().toLocaleDateString('en-GB')} &nbsp; Prepared by: ${curUser.name}</p>
-  <div id="results">${resultsHtml}</div>
-  <button onclick="window.print()" style="margin-top:12px;padding:8px 20px">Print</button>
+  <h2>${db.settings.company} — QUOTE</h2>
+  <p>Date: ${new Date().toLocaleDateString('en-GB')} &nbsp; Part: ${part} &nbsp; Qty: ${e.qty}</p>
+  <table>
+  ${rows.map(([label,val])=>`<tr><td>${label}</td><td>${val}</td></tr>`).join('')}
+  <tr class="total"><td>Total price (${e.qty} off)</td><td>${c(e.totalQuote)}</td></tr>
+  <tr><td>Unit price</td><td>${c(e.unitPrice)}</td></tr>
+  </table>
+  <button onclick="window.print()" style="margin-top:20px;padding:8px 20px">Print</button>
   </body></html>`);
 }
 
