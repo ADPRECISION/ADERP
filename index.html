@@ -2277,15 +2277,33 @@ Snainton, YO13 9BD</textarea></div>
 <!-- DIRECT RFQ MODAL (raised from RFQ Tracker, not tied to an estimate) -->
 <div class="modal-overlay" id="modal-rfq-direct">
 <div class="modal" style="width:560px">
-  <div class="modal-head"><h3>📋 Raise material RFQ</h3><button class="ghost" onclick="closeModal('modal-rfq-direct')">✕</button></div>
+  <div class="modal-head"><h3>📋 Raise RFQ</h3><button class="ghost" onclick="closeModal('modal-rfq-direct')">✕</button></div>
   <div class="modal-content">
-    <div class="fg2">
-      <div class="fg"><label>Material grade</label><input id="rd-grade" placeholder="e.g. 316L Stainless, EN8"/></div>
-      <div class="fg"><label>Bar diameter (mm, optional)</label><input id="rd-dia" type="number" min="0" step="0.1"/></div>
+    <div class="fg"><label>What's this RFQ for?</label>
+      <select id="rd-kind" onchange="toggleDirectRFQKind()">
+        <option value="material">Material (bar stock)</option>
+        <option value="other">Other item / service (tooling, consumables, outwork, etc.)</option>
+      </select>
     </div>
-    <div class="fg2">
-      <div class="fg"><label>Total length needed (mm)</label><input id="rd-qty-mm" type="number" min="0" step="100"/></div>
-      <div class="fg"><label>For (optional)</label><input id="rd-for" placeholder="e.g. stock replenishment, WO-014"/></div>
+    <div id="rd-material-fields">
+      <div class="fg2">
+        <div class="fg"><label>Material grade</label><input id="rd-grade" placeholder="e.g. 316L Stainless, EN8"/></div>
+        <div class="fg"><label>Bar diameter (mm, optional)</label><input id="rd-dia" type="number" min="0" step="0.1"/></div>
+      </div>
+      <div class="fg2">
+        <div class="fg"><label>Total length needed (mm)</label><input id="rd-qty-mm" type="number" min="0" step="100"/></div>
+        <div class="fg"><label>For (optional)</label><input id="rd-for" placeholder="e.g. stock replenishment, WO-014"/></div>
+      </div>
+    </div>
+    <div id="rd-other-fields" style="display:none">
+      <div class="fg"><label>Item / service description</label><input id="rd-desc" placeholder="e.g. CCMT inserts, anodising outwork, gauge calibration"/></div>
+      <div class="fg2">
+        <div class="fg"><label>Quantity</label><input id="rd-other-qty" type="number" min="0" step="1" value="1"/></div>
+        <div class="fg"><label>Unit</label>
+          <select id="rd-other-unit"><option>pcs</option><option>set</option><option>job</option><option>hrs</option><option>box</option><option>kg</option><option>m</option></select>
+        </div>
+      </div>
+      <div class="fg"><label>For (optional)</label><input id="rd-other-for" placeholder="e.g. WO-014, general stock"/></div>
     </div>
     <div class="fg2">
       <div class="fg"><label>Supplier <span style="font-weight:400;color:var(--txt3)">— approved suppliers only</span></label>
@@ -7779,15 +7797,17 @@ function renderRFQs(){
 
   tbody.innerHTML=list.length?list.map(r=>{
     const i=db.rfqs.indexOf(r);
-    const matSpec=`${r.grade||'—'}${r.dia?' Ø'+r.dia+'mm':''}`;
+    const isOther=r.kind==='other';
+    const matSpec=isOther?(r.itemDesc||'—'):`${r.grade||'—'}${r.dia?' Ø'+r.dia+'mm':''}`;
+    const qtyLine=isOther?`${r.qty} ${r.unit||''}`.trim():`${r.qtyMm}mm (${(r.qtyMm/1000).toFixed(2)}m)`;
     return `<tr>
       <td class="td-mono" style="color:var(--accent)">${r.id}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${r.date}</td>
       <td>
         <div style="font-weight:500">${matSpec}</div>
-        <div style="font-size:10.5px;color:var(--txt3)">${r.qtyMm}mm (${(r.qtyMm/1000).toFixed(2)}m)</div>
+        <div style="font-size:10.5px;color:var(--txt3)">${qtyLine}</div>
       </td>
-      <td class="td-mono">${r.qtyMm}mm</td>
+      <td class="td-mono">${isOther?`${r.qty} ${r.unit||''}`.trim():r.qtyMm+'mm'}</td>
       <td style="font-size:11.5px">${r.partDesc||'—'}${r.partQty?` (${r.partQty} off)`:''}</td>
       <td style="font-size:11.5px">${r.supName||'<span style="color:var(--txt3)">Not specified</span>'}</td>
       <td>${badge(r.status.toUpperCase(),statusColors[r.status]||'b-gray')}
@@ -7830,21 +7850,30 @@ function raisePOFromRFQ(i){
     const supSel=document.getElementById('po-sup-sel');
     if(supSel && r.supCode) supSel.value=r.supCode;
 
-    // One PO line per distinct bar length from the RFQ's bar plan, so the
-    // PO mirrors what was actually quoted (e.g. 7×3000mm + 1×1000mm)
-    // instead of collapsing it into a single rounded-up line.
-    const barOrder=(r.barOrder&&r.barOrder.length)?r.barOrder:[{len:3000,qty:Math.ceil(r.qtyMm/3000)}];
-    barOrder.forEach((b,idx)=>{
-      const block=idx===0?document.querySelector('#po-lines .po-line-block'):(addPOLine(),document.querySelectorAll('#po-lines .po-line-block')[idx]);
+    if(r.kind==='other'){
+      // Single generic line for non-material RFQs (tooling, services, etc.)
+      const block=document.querySelector('#po-lines .po-line-block');
       const setVal=(cls,val)=>{const el=block.querySelector('.'+cls); if(el) el.value=val;};
-      setVal('po-desc', `${r.grade||''} bar${r.dia?' Ø'+r.dia+'mm':''} × ${b.len}mm`.trim());
-      setVal('po-ref', `${r.grade||'MAT'}-${r.dia||0}RD-${b.len}`.replace(/\s+/g,''));
-      setVal('po-qty', b.qty);
-      setVal('po-mat-type', r.matType||'');
-      setVal('po-mat-grade', r.grade||'');
-      setVal('po-mat-form', 'Bar — round');
-      setVal('po-mat-size', r.dia?`${r.dia}mm dia × ${b.len}mm`:`${b.len}mm`);
-    });
+      setVal('po-desc', r.itemDesc||'');
+      setVal('po-ref', '');
+      setVal('po-qty', r.qty||1);
+    } else {
+      // One PO line per distinct bar length from the RFQ's bar plan, so the
+      // PO mirrors what was actually quoted (e.g. 7×3000mm + 1×1000mm)
+      // instead of collapsing it into a single rounded-up line.
+      const barOrder=(r.barOrder&&r.barOrder.length)?r.barOrder:[{len:3000,qty:Math.ceil(r.qtyMm/3000)}];
+      barOrder.forEach((b,idx)=>{
+        const block=idx===0?document.querySelector('#po-lines .po-line-block'):(addPOLine(),document.querySelectorAll('#po-lines .po-line-block')[idx]);
+        const setVal=(cls,val)=>{const el=block.querySelector('.'+cls); if(el) el.value=val;};
+        setVal('po-desc', `${r.grade||''} bar${r.dia?' Ø'+r.dia+'mm':''} × ${b.len}mm`.trim());
+        setVal('po-ref', `${r.grade||'MAT'}-${r.dia||0}RD-${b.len}`.replace(/\s+/g,''));
+        setVal('po-qty', b.qty);
+        setVal('po-mat-type', r.matType||'');
+        setVal('po-mat-grade', r.grade||'');
+        setVal('po-mat-form', 'Bar — round');
+        setVal('po-mat-size', r.dia?`${r.dia}mm dia × ${b.len}mm`:`${b.len}mm`);
+      });
+    }
     calcPOTotal();
     if(r.notes) document.getElementById('po-notes').value=`From ${r.id}: ${r.notes}`;
   },100);
@@ -7855,7 +7884,14 @@ function raisePOFromRFQ(i){
 }
 
 
-// Raise an RFQ directly from the RFQ Tracker, not tied to an Estimator quote
+// Raise an RFQ directly from the RFQ Tracker, not tied to an Estimator quote.
+// Can be for material (bar stock) or any other item/service.
+function toggleDirectRFQKind(){
+  const kind = document.getElementById('rd-kind').value;
+  document.getElementById('rd-material-fields').style.display = kind==='material' ? 'block' : 'none';
+  document.getElementById('rd-other-fields').style.display = kind==='other' ? 'block' : 'none';
+}
+
 function openDirectRFQ(){
   const supSel = document.getElementById('rd-supplier');
   const approved = db.suppliers.filter(s=>s.status==='Approved');
@@ -7866,56 +7902,95 @@ function openDirectRFQ(){
       supSel.innerHTML = '<option value="">— No approved suppliers —</option>';
     }
   }
+  document.getElementById('rd-kind').value = 'material';
   document.getElementById('rd-grade').value = '';
   document.getElementById('rd-dia').value = '';
   document.getElementById('rd-qty-mm').value = '';
   document.getElementById('rd-for').value = '';
+  document.getElementById('rd-desc').value = '';
+  document.getElementById('rd-other-qty').value = 1;
+  document.getElementById('rd-other-unit').value = 'pcs';
+  document.getElementById('rd-other-for').value = '';
   document.getElementById('rd-due').value = '';
   document.getElementById('rd-notes').value = '';
+  toggleDirectRFQKind();
   if(!approved.length) toast('No approved suppliers yet — add one or approve an existing supplier first','warn');
   openModal('modal-rfq-direct');
 }
 
 function saveDirectRFQ(){
-  const grade = document.getElementById('rd-grade').value.trim();
-  if(!grade){ toast('Material grade is required','error'); return; }
-  const qtyMm = parseInt(document.getElementById('rd-qty-mm').value)||0;
-  if(qtyMm<=0){ toast('Enter the total length needed (mm)','error'); return; }
+  const kind = document.getElementById('rd-kind').value;
   const supCode = document.getElementById('rd-supplier').value;
   if(!supCode){ toast('Select an approved supplier','error'); return; }
   const supData = db.suppliers.find(s=>s.code===supCode && s.status==='Approved');
   if(!supData){ toast('Selected supplier is not approved','error'); return; }
-
-  const dia = parseFloat(document.getElementById('rd-dia').value)||0;
-  const forDesc = document.getElementById('rd-for').value.trim();
   const due = document.getElementById('rd-due').value;
   const notes = document.getElementById('rd-notes').value;
-  const barOrder = packBarsByMm(qtyMm);
-  const barBreakdown = barOrder.map(b=>`${b.qty}× ${b.len}mm bar`).join('\n') || `${qtyMm}mm total`;
   const rfqId = 'RFQ-'+Date.now().toString().slice(-6);
 
   if(!db.rfqs) db.rfqs=[];
-  db.rfqs.unshift({
-    id:rfqId,
-    date:todayISO(),
-    grade,
-    dia,
-    qtyMm,
-    matType:guessMatTypeFromGrade(grade),
-    partDesc:forDesc||'Stock replenishment',
-    partQty:0,
-    barBreakdown,
-    barOrder,
-    supCode,
-    supName:supData.name,
-    due,
-    notes,
-    status:'Pending',
-    raisedBy:curUser.name,
-    quotedPrice:0,
-    quotedLead:'',
-    convertedPO:'',
-  });
+
+  if(kind==='other'){
+    const desc = document.getElementById('rd-desc').value.trim();
+    if(!desc){ toast('Enter an item/service description','error'); return; }
+    const qty = parseFloat(document.getElementById('rd-other-qty').value)||0;
+    if(qty<=0){ toast('Enter a quantity','error'); return; }
+    const unit = document.getElementById('rd-other-unit').value;
+    const forDesc = document.getElementById('rd-other-for').value.trim();
+
+    db.rfqs.unshift({
+      id:rfqId,
+      date:todayISO(),
+      kind:'other',
+      itemDesc:desc,
+      qty,
+      unit,
+      grade:'', dia:0, qtyMm:0, matType:'', barBreakdown:'', barOrder:[],
+      partDesc:forDesc||desc,
+      partQty:0,
+      supCode,
+      supName:supData.name,
+      due,
+      notes,
+      status:'Pending',
+      raisedBy:curUser.name,
+      quotedPrice:0,
+      quotedLead:'',
+      convertedPO:'',
+    });
+  } else {
+    const grade = document.getElementById('rd-grade').value.trim();
+    if(!grade){ toast('Material grade is required','error'); return; }
+    const qtyMm = parseInt(document.getElementById('rd-qty-mm').value)||0;
+    if(qtyMm<=0){ toast('Enter the total length needed (mm)','error'); return; }
+    const dia = parseFloat(document.getElementById('rd-dia').value)||0;
+    const forDesc = document.getElementById('rd-for').value.trim();
+    const barOrder = packBarsByMm(qtyMm);
+    const barBreakdown = barOrder.map(b=>`${b.qty}× ${b.len}mm bar`).join('\n') || `${qtyMm}mm total`;
+
+    db.rfqs.unshift({
+      id:rfqId,
+      date:todayISO(),
+      kind:'material',
+      grade,
+      dia,
+      qtyMm,
+      matType:guessMatTypeFromGrade(grade),
+      partDesc:forDesc||'Stock replenishment',
+      partQty:0,
+      barBreakdown,
+      barOrder,
+      supCode,
+      supName:supData.name,
+      due,
+      notes,
+      status:'Pending',
+      raisedBy:curUser.name,
+      quotedPrice:0,
+      quotedLead:'',
+      convertedPO:'',
+    });
+  }
   renderRFQs();
   closeModal('modal-rfq-direct');
   toast(`RFQ ${rfqId} raised to ${supData.name}`,'success');
