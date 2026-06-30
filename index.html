@@ -778,6 +778,7 @@ tbody tr:hover td{background:var(--bg3)}
         <div class="tabs" id="rfq-tabs" style="margin-bottom:14px">
           <div class="tab active" onclick="setRFQTab('all',this)">All <span class="tab-count" id="rfq-tc-all">0</span></div>
           <div class="tab" onclick="setRFQTab('Pending',this)">Pending <span class="tab-count" id="rfq-tc-pending">0</span></div>
+          <div class="tab" onclick="setRFQTab('Quoted',this)">Quoted <span class="tab-count" id="rfq-tc-quoted">0</span></div>
           <div class="tab" onclick="setRFQTab('Accepted',this)">Accepted <span class="tab-count" id="rfq-tc-accepted">0</span></div>
           <div class="tab" onclick="setRFQTab('Declined',this)">Declined <span class="tab-count" id="rfq-tc-declined">0</span></div>
           <div class="tab" onclick="setRFQTab('Ordered',this)">Ordered <span class="tab-count" id="rfq-tc-ordered">0</span></div>
@@ -2318,6 +2319,25 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-footer">
     <button onclick="closeModal('modal-rfq-direct')">Cancel</button>
     <button class="primary" onclick="saveDirectRFQ()">Raise RFQ</button>
+  </div>
+</div></div>
+
+<!-- RFQ — RECORD SUPPLIER QUOTE (does not commit to ordering) -->
+<div class="modal-overlay" id="modal-rfq-quote">
+<div class="modal" style="width:420px">
+  <div class="modal-head"><h3>Record supplier quote</h3><button class="ghost" onclick="closeModal('modal-rfq-quote')">✕</button></div>
+  <div class="modal-content">
+    <div class="alert al-info" style="margin-bottom:14px;font-size:12px">
+      This just records the price the supplier quoted — it doesn't place an order. Use "Accept" once your own quote to the customer has been won.
+    </div>
+    <div class="fg2">
+      <div class="fg"><label>Quoted price (£)</label><input id="rq-price" type="number" min="0" step="0.01"/></div>
+      <div class="fg"><label>Lead time</label><input id="rq-lead" placeholder="e.g. 5 days"/></div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button onclick="closeModal('modal-rfq-quote')">Cancel</button>
+    <button class="primary" onclick="saveRFQQuote()">Save quote</button>
   </div>
 </div></div>
 
@@ -7780,11 +7800,12 @@ function setRFQTab(f,el){
 function renderRFQs(){
   if(!db.rfqs) db.rfqs=[];
 
-  const counts={all:db.rfqs.length,Pending:0,Accepted:0,Declined:0,Ordered:0};
+  const counts={all:db.rfqs.length,Pending:0,Quoted:0,Accepted:0,Declined:0,Ordered:0};
   db.rfqs.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
   const setCount=(id,n)=>{const el=document.getElementById(id); if(el) el.textContent=n||'';};
   setCount('rfq-tc-all',counts.all);
   setCount('rfq-tc-pending',counts.Pending);
+  setCount('rfq-tc-quoted',counts.Quoted);
   setCount('rfq-tc-accepted',counts.Accepted);
   setCount('rfq-tc-declined',counts.Declined);
   setCount('rfq-tc-ordered',counts.Ordered);
@@ -7793,7 +7814,7 @@ function renderRFQs(){
   const tbody=document.getElementById('rfq-tbody');
   if(!tbody) return;
 
-  const statusColors={Pending:'b-amber',Accepted:'b-green',Declined:'b-red',Ordered:'b-blue'};
+  const statusColors={Pending:'b-amber',Quoted:'b-blue',Accepted:'b-green',Declined:'b-red',Ordered:'b-blue'};
 
   tbody.innerHTML=list.length?list.map(r=>{
     const i=db.rfqs.indexOf(r);
@@ -7809,13 +7830,19 @@ function renderRFQs(){
       </td>
       <td class="td-mono">${isOther?`${r.qty} ${r.unit||''}`.trim():r.qtyMm+'mm'}</td>
       <td style="font-size:11.5px">${r.partDesc||'—'}${r.partQty?` (${r.partQty} off)`:''}</td>
-      <td style="font-size:11.5px">${r.supName||'<span style="color:var(--txt3)">Not specified</span>'}</td>
+      <td style="font-size:11.5px">${r.supName||'<span style="color:var(--txt3)">Not specified</span>'}
+        ${r.quotedPrice?`<div style="font-size:10.5px;color:var(--green);margin-top:2px">£${r.quotedPrice.toFixed(2)}${r.quotedLead?' · '+r.quotedLead:''}</div>`:''}
+      </td>
       <td>${badge(r.status.toUpperCase(),statusColors[r.status]||'b-gray')}
         ${r.convertedPO?`<div style="margin-top:3px"><a href="#" onclick="navigate('po');return false;" style="font-size:10px;color:var(--accent)">→ ${r.convertedPO}</a></div>`:''}
       </td>
       <td style="white-space:nowrap">
         ${r.status==='Pending'?`
-          <button class="ghost xs" style="color:var(--green);border-color:var(--green)" onclick="setRFQStatus(${i},'Accepted')" data-tip="Accept this quote from the supplier">✓ Accept</button>
+          <button class="ghost xs" style="color:var(--accent);border-color:var(--accent)" onclick="openRFQQuoteModal(${i})" data-tip="Record the price the supplier quoted, without committing to order">£ Record quote</button>
+          <button class="ghost xs" style="color:var(--red)" onclick="setRFQStatus(${i},'Declined')" data-tip="Decline this RFQ">✕ Decline</button>
+        `:''}
+        ${r.status==='Quoted'?`
+          <button class="ghost xs" style="color:var(--green);border-color:var(--green)" onclick="setRFQStatus(${i},'Accepted')" data-tip="Commit to this supplier once your quote to the customer is won">✓ Accept</button>
           <button class="ghost xs" style="color:var(--red)" onclick="setRFQStatus(${i},'Declined')" data-tip="Decline this quote">✕ Decline</button>
         `:''}
         ${r.status==='Accepted'?`
@@ -7835,6 +7862,29 @@ function setRFQStatus(i,status){
   r.status=status;
   renderRFQs();
   toast(`${r.id} marked ${status}`,'success');
+}
+
+let rfqQuoteIdx=null;
+function openRFQQuoteModal(i){
+  const r=db.rfqs[i];
+  if(!r) return;
+  rfqQuoteIdx=i;
+  document.getElementById('rq-price').value = r.quotedPrice||'';
+  document.getElementById('rq-lead').value = r.quotedLead||'';
+  openModal('modal-rfq-quote');
+}
+
+function saveRFQQuote(){
+  const r=db.rfqs[rfqQuoteIdx];
+  if(!r) return;
+  const price=parseFloat(document.getElementById('rq-price').value)||0;
+  if(price<=0){ toast('Enter the quoted price','error'); return; }
+  r.quotedPrice=price;
+  r.quotedLead=document.getElementById('rq-lead').value.trim();
+  r.status='Quoted';
+  renderRFQs();
+  closeModal('modal-rfq-quote');
+  toast(`Quote recorded for ${r.id} — accept once the job is won`,'success');
 }
 
 function raisePOFromRFQ(i){
@@ -8197,6 +8247,21 @@ function runEstimate(){
     matCostKnown = true;
   }
 
+  // No stock cost — fall back to a quoted (or accepted) RFQ for this grade, if one
+  // exists. This does NOT commit to the order — it just lets the quote reflect a
+  // real supplier price instead of staying "TBD" until the job is won.
+  let matRFQ = null;
+  if(!matCostKnown && matGrade && matGrade.trim() && matGrade.trim()!=='—'){
+    matRFQ = (db.rfqs||[]).find(r=>r.kind!=='other' && (r.status==='Quoted'||r.status==='Accepted') &&
+      (r.grade||'').trim().toLowerCase()===matGrade.trim().toLowerCase());
+    if(matRFQ && matRFQ.quotedPrice){
+      // Quoted price is for the whole RFQ order — scale to this job's bar mm share
+      const rfqTotalMm = matRFQ.qtyMm || totalBarMm;
+      matCost = matRFQ.quotedPrice * (totalBarMm / rfqTotalMm);
+      matCostKnown = true;
+    }
+  }
+
   // ── COST CALCULATION ──
   // matCost already calculated above from barOrder
   const setupCost     = (setupMin / 60) * rate;
@@ -8276,7 +8341,7 @@ function runEstimate(){
                   <span style="color:var(--txt3);font-size:11px;margin-left:8px">${b.pp} parts · usable ${usable(b.len)}mm · 40mm chuck</span>
                 </div>
                 <span style="font-family:var(--mono);font-size:11px;color:${matCostKnown?'var(--green)':'var(--txt3)'}">
-                  ${matCostKnown?'£'+(barOrder.find(x=>x.len===b.len)?((stockMat.cost*(b.len/3000))*b.qty).toFixed(2):'—'):'cost TBD'}
+                  ${matCostKnown?(stockMat?'£'+((stockMat.cost*(b.len/3000))*b.qty).toFixed(2):'~£'+(matCost*(b.qty*b.len/totalBarMm)).toFixed(2)):'cost TBD'}
                 </span>
               </div>`).join('')}
             <div style="font-size:11px;color:var(--txt3);margin-top:6px;padding-top:6px;border-top:1px solid var(--accent)">
@@ -8286,7 +8351,10 @@ function runEstimate(){
 
           <!-- RFQ / COST NOTE -->
           ${matCostKnown?
-            `<div class="alert al-ok" style="font-size:11.5px">✓ Material cost calculated from stock (£${matCost.toFixed(2)}) — included in quote below</div>`:
+            (stockMat?
+              `<div class="alert al-ok" style="font-size:11.5px">✓ Material cost calculated from stock (£${matCost.toFixed(2)}) — included in quote below</div>`:
+              `<div class="alert al-ok" style="font-size:11.5px">✓ Material cost (£${matCost.toFixed(2)}) from ${matRFQ.status==='Accepted'?'accepted':'quoted'} RFQ ${matRFQ.id} (${matRFQ.supName||'supplier'}) — included in quote below. Material isn't ordered until ${matRFQ.id} is accepted.</div>`
+            ):
             (matGrade && matGrade.trim() && matGrade.trim()!=='—')?
             `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--r2)">
               <div style="flex:1;font-size:12px;color:var(--amber)">⚠ No material cost — not included in quote. Send an RFQ to your supplier to get pricing.</div>
