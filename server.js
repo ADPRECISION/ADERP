@@ -61,10 +61,10 @@ function mergeTable(name, serverRows, incomingRows) {
     // but anything that only exists on the server side (added by someone else) survives.
     incomingRows.forEach(r => {
       if (r == null || r[key] == null) return;
-      // Messages: readBy is a per-recipient list, mutated independently by whoever opens
-      // the channel. Last-write-wins would let one reader's save erase another reader's
-      // entry, so union the two lists instead of blindly overwriting.
-      if (name === 'messages' && Array.isArray(r.readBy)) {
+      // Messages/orders/POs/DNs: readBy is a per-viewer list, mutated independently by
+      // whoever opens that record. Last-write-wins would let one viewer's save erase
+      // another viewer's entry, so union the two lists instead of blindly overwriting.
+      if ((name === 'messages' || name === 'orders' || name === 'pos' || name === 'dns') && Array.isArray(r.readBy)) {
         const existing = byKey.get(r[key]);
         if (existing && Array.isArray(existing.readBy)) {
           r = { ...r, readBy: Array.from(new Set([...existing.readBy, ...r.readBy])) };

@@ -2464,7 +2464,7 @@ async function pullRemoteDB(){
     restoreUsersFromDB();
     dedupeMessages();
     try{ localStorage.setItem(DB_STORAGE_KEY, text); }catch(e){}
-    if(curUser) updateDMBadges(); // keep the unread badge live even on pages other than Messages
+    if(curUser){ updateDMBadges(); updateRecordBadges(); } // keep the unread badges live even on pages other than Messages
     if(curUser && typeof navigate === 'function' && currentPage) navigate(currentPage);
   }catch(e){ /* offline — keep showing last known data */ }
 }
@@ -2973,6 +2973,7 @@ function doLogin(){
   document.getElementById('tb-urole').textContent=u.role;
   buildNav();
   updateDMBadges();
+  updateRecordBadges();
   checkCalibrationWarnings();
   navigate('dash');
 }
@@ -2994,6 +2995,7 @@ function restoreSession(){
   document.getElementById('tb-urole').textContent=u.role;
   buildNav();
   updateDMBadges();
+  updateRecordBadges();
   checkCalibrationWarnings();
   navigate('dash');
   return true;
@@ -3084,7 +3086,8 @@ function buildNav(){
       const d=document.createElement('div');
       d.className='nav-item';d.id='nav-'+item.id;
       if(item.tip) d.setAttribute('data-tip',item.tip);
-      d.innerHTML=`<span class="ni">${item.icon}</span>${item.label}${item.id==='messages'?'<span class="nav-badge" id="nav-messages-badge" style="display:none"></span>':''}`;
+      const badgeIds={messages:'nav-messages-badge', orders:'nav-orders-badge', delivery:'nav-delivery-badge', po:'nav-po-badge'};
+      d.innerHTML=`<span class="ni">${item.icon}</span>${item.label}${badgeIds[item.id]?`<span class="nav-badge" id="${badgeIds[item.id]}" style="display:none"></span>`:''}`;
       d.onclick=()=>navigate(item.id);
       nav.appendChild(d);
     }
@@ -3120,6 +3123,10 @@ function navigate(page){
     admin:renderAdmin
   };
   if(renders[page]) renders[page]();
+
+  // Mark records as viewed when the user opens the page that lists them
+  const RECORD_PAGE_TABLES = {orders:'orders', delivery:'dns', po:'pos'};
+  if(curUser && RECORD_PAGE_TABLES[page]) markRecordsReadFor(RECORD_PAGE_TABLES[page], curUser.name);
 }
 
 // ═══════════════════ MODAL ═══════════════════
@@ -4662,8 +4669,10 @@ function saveOrder(){
     attachments:[...woStagedFiles],
     holdReason:'',
     totalPartsInPlay:null, // set at first consume/run
-    ops:ops.map(op=>({name:op.name,type:op.type,done:false,by:'',ts:'',firstOffBy:'',firstOffSignedBy:''}))
+    ops:ops.map(op=>({name:op.name,type:op.type,done:false,by:'',ts:'',firstOffBy:'',firstOffSignedBy:''})),
+    readBy:[curUser.name],
   });
+  notifyNewRecord('orders', id, `New works order ${id} — ${partVal} (${custEl.options[custEl.selectedIndex]?.text||''})`);
 
   // NOTE: material is NOT deducted here — deduction happens when operator confirms consume
 
@@ -6205,7 +6214,9 @@ function saveDN(){
     part: o?`${o.part} ${o.pn||''} Rev ${o.rev||'A'}`:'',
     qty, date, status:'Dispatched', addr, notes,
     lines:[{wo:wid, part:o?.part||'', pn:o?.pn||'', rev:o?.rev||'A', cust:o?.cust||'', qty}],
+    readBy:[curUser.name],
   });
+  notifyNewRecord('delivery', id, `New delivery note ${id} — ${o?o.part:wid} (${qty} off)`);
 
   // Mark DN op done on WO
   if(o){
@@ -6723,7 +6734,9 @@ function raiseAutoPOs(){
     const id=nextID('PO-',db.pos);
     db.pos.push({id,sup,supname:supData?supData.name:sup,exp:'',raised:todayISO(),status:'Draft',auto:true,
       addr:db.settings.addr,notes:'Auto-generated from safety stock trigger',
-      lines:sitems.map(s=>({desc:s.desc,ref:s.code,qty:s.reorder,unit:s.unit,cost:s.cost}))});
+      lines:sitems.map(s=>({desc:s.desc,ref:s.code,qty:s.reorder,unit:s.unit,cost:s.cost})),
+      readBy:[curUser.name]});
+    notifyNewRecord('po', id, `New purchase order ${id} — ${supData?supData.name:sup} (auto safety-stock)`);
   }
   const count=Object.keys(bySup).length;
   toast(`${count} draft PO(s) created — review in Purchase Orders`,'success');
@@ -6738,7 +6751,9 @@ function raisePOFromItem(code){
   const id=nextID('PO-',db.pos);
   db.pos.push({id,sup,supname:supData?supData.name:sup,exp:'',raised:todayISO(),status:'Draft',auto:true,
     addr:db.settings.addr,notes:'',
-    lines:[{desc:s.desc||s.grade||code,ref:code,qty:s.reorder||1,unit:s.unit||'pcs',cost:s.cost||0}]});
+    lines:[{desc:s.desc||s.grade||code,ref:code,qty:s.reorder||1,unit:s.unit||'pcs',cost:s.cost||0}],
+    readBy:[curUser.name]});
+  notifyNewRecord('po', id, `New purchase order ${id} — ${supData?supData.name:sup}`);
   toast(`Draft PO ${id} created for ${code}`,'success');
   navigate('po');
 }
@@ -7073,8 +7088,10 @@ function savePO(status){
     raised:todayISO(),status,auto:false,
     addr:document.getElementById('po-addr').value,
     notes:document.getElementById('po-notes').value,
-    lines
+    lines,
+    readBy:[curUser.name],
   });
+  notifyNewRecord('po', id, `New purchase order ${id} — ${supData?supData.name:sup}`);
   closeModal('modal-po');renderPOs();
   resetPOModal();
 
@@ -10313,6 +10330,39 @@ function updateDMBadges(){
     if(totalUnread>0){navBadge.textContent=totalUnread;navBadge.style.display='inline-block';}
     else navBadge.style.display='none';
   }
+}
+
+// Records (works orders, delivery notes, purchase orders) that should show an
+// "unread" nav badge for anyone who hasn't yet viewed them — mirrors the messages
+// badge so e.g. admin sees a new delivery note Rob raised even without chat access.
+const RECORD_BADGE_TABLES = [
+  {nav:'orders',   table:'orders'},
+  {nav:'delivery', table:'dns'},
+  {nav:'po',       table:'pos'},
+];
+
+function notifyNewRecord(navId, id, text){
+  updateRecordBadges();
+}
+
+function updateRecordBadges(){
+  if(!curUser) return;
+  RECORD_BADGE_TABLES.forEach(c=>{
+    const items = db[c.table]||[];
+    const unread = items.filter(r=>Array.isArray(r.readBy) && !r.readBy.includes(curUser.name)).length;
+    const badge = document.getElementById('nav-'+c.nav+'-badge');
+    if(!badge) return;
+    if(unread>0){ badge.textContent=unread; badge.style.display='inline-block'; }
+    else badge.style.display='none';
+  });
+}
+
+function markRecordsReadFor(table, name){
+  (db[table]||[]).forEach(r=>{
+    if(!Array.isArray(r.readBy)) r.readBy=[];
+    if(!r.readBy.includes(name)) r.readBy.push(name);
+  });
+  updateRecordBadges();
 }
 
 // Helper: set or remove a badge on a container element
