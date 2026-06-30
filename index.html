@@ -772,6 +772,7 @@ tbody tr:hover td{background:var(--bg3)}
       <div class="page" id="page-rfqs">
         <div class="ph">
           <div class="ph-left"><h2>RFQ Tracker</h2><p>Requests for quotation on new material — accept/decline, then raise a purchase order</p></div>
+          <button class="primary" onclick="openDirectRFQ()" data-tip="Raise a material RFQ to an approved supplier, not tied to an estimate">+ Add RFQ</button>
         </div>
 
         <div class="tabs" id="rfq-tabs" style="margin-bottom:14px">
@@ -2270,6 +2271,35 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-footer">
     <button onclick="closeModal('modal-rfq')">Cancel</button>
     <button class="primary" id="rfq-print-btn" onclick="printRFQ()">🖨 Print / send RFQ</button>
+  </div>
+</div></div>
+
+<!-- DIRECT RFQ MODAL (raised from RFQ Tracker, not tied to an estimate) -->
+<div class="modal-overlay" id="modal-rfq-direct">
+<div class="modal" style="width:560px">
+  <div class="modal-head"><h3>📋 Raise material RFQ</h3><button class="ghost" onclick="closeModal('modal-rfq-direct')">✕</button></div>
+  <div class="modal-content">
+    <div class="fg2">
+      <div class="fg"><label>Material grade</label><input id="rd-grade" placeholder="e.g. 316L Stainless, EN8"/></div>
+      <div class="fg"><label>Bar diameter (mm, optional)</label><input id="rd-dia" type="number" min="0" step="0.1"/></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label>Total length needed (mm)</label><input id="rd-qty-mm" type="number" min="0" step="100"/></div>
+      <div class="fg"><label>For (optional)</label><input id="rd-for" placeholder="e.g. stock replenishment, WO-014"/></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label>Supplier <span style="font-weight:400;color:var(--txt3)">— approved suppliers only</span></label>
+        <select id="rd-supplier"></select>
+      </div>
+      <div class="fg"><label>Required by date (optional)</label><input type="date" id="rd-due"/></div>
+    </div>
+    <div class="fg"><label>Additional notes for supplier</label>
+      <textarea id="rd-notes" rows="2" placeholder="e.g. Material certs required, specific tolerance, surface condition…"></textarea>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button onclick="closeModal('modal-rfq-direct')">Cancel</button>
+    <button class="primary" onclick="saveDirectRFQ()">Raise RFQ</button>
   </div>
 </div></div>
 
@@ -7824,6 +7854,72 @@ function raisePOFromRFQ(i){
   toast(`${r.id} loaded into new PO — review lines and click Send/Save`,'info');
 }
 
+
+// Raise an RFQ directly from the RFQ Tracker, not tied to an Estimator quote
+function openDirectRFQ(){
+  const supSel = document.getElementById('rd-supplier');
+  const approved = db.suppliers.filter(s=>s.status==='Approved');
+  if(supSel){
+    if(approved.length){
+      supSel.innerHTML = approved.map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
+    } else {
+      supSel.innerHTML = '<option value="">— No approved suppliers —</option>';
+    }
+  }
+  document.getElementById('rd-grade').value = '';
+  document.getElementById('rd-dia').value = '';
+  document.getElementById('rd-qty-mm').value = '';
+  document.getElementById('rd-for').value = '';
+  document.getElementById('rd-due').value = '';
+  document.getElementById('rd-notes').value = '';
+  if(!approved.length) toast('No approved suppliers yet — add one or approve an existing supplier first','warn');
+  openModal('modal-rfq-direct');
+}
+
+function saveDirectRFQ(){
+  const grade = document.getElementById('rd-grade').value.trim();
+  if(!grade){ toast('Material grade is required','error'); return; }
+  const qtyMm = parseInt(document.getElementById('rd-qty-mm').value)||0;
+  if(qtyMm<=0){ toast('Enter the total length needed (mm)','error'); return; }
+  const supCode = document.getElementById('rd-supplier').value;
+  if(!supCode){ toast('Select an approved supplier','error'); return; }
+  const supData = db.suppliers.find(s=>s.code===supCode && s.status==='Approved');
+  if(!supData){ toast('Selected supplier is not approved','error'); return; }
+
+  const dia = parseFloat(document.getElementById('rd-dia').value)||0;
+  const forDesc = document.getElementById('rd-for').value.trim();
+  const due = document.getElementById('rd-due').value;
+  const notes = document.getElementById('rd-notes').value;
+  const barOrder = packBarsByMm(qtyMm);
+  const barBreakdown = barOrder.map(b=>`${b.qty}× ${b.len}mm bar`).join('\n') || `${qtyMm}mm total`;
+  const rfqId = 'RFQ-'+Date.now().toString().slice(-6);
+
+  if(!db.rfqs) db.rfqs=[];
+  db.rfqs.unshift({
+    id:rfqId,
+    date:todayISO(),
+    grade,
+    dia,
+    qtyMm,
+    matType:guessMatTypeFromGrade(grade),
+    partDesc:forDesc||'Stock replenishment',
+    partQty:0,
+    barBreakdown,
+    barOrder,
+    supCode,
+    supName:supData.name,
+    due,
+    notes,
+    status:'Pending',
+    raisedBy:curUser.name,
+    quotedPrice:0,
+    quotedLead:'',
+    convertedPO:'',
+  });
+  renderRFQs();
+  closeModal('modal-rfq-direct');
+  toast(`RFQ ${rfqId} raised to ${supData.name}`,'success');
+}
 
 function printRFQ(){
   if(!rfqData) return;
