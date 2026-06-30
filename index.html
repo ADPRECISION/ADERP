@@ -7555,7 +7555,7 @@ function renderEstimator(){
   // Populate customer select
   const custSel = document.getElementById('est-customer');
   if(custSel) custSel.innerHTML='<option value="">— Select or add customer —</option>'+
-    db.customers.map(c=>`<option value="${c.code}">${c.name} (${c.code})</option>`).join('');
+    db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
 
   // Populate material select from stock
   const sel = document.getElementById('est-mat-sel');
@@ -8196,7 +8196,7 @@ function saveEstimatorCustomer(){
   const custSel=document.getElementById('est-customer');
   if(custSel){
     custSel.innerHTML='<option value="">— Select or add customer —</option>'+
-      db.customers.map(c=>`<option value="${c.code}">${c.name} (${c.code})</option>`).join('');
+      db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
     custSel.value=code;
   }
   populateOrderSelects(); // refresh WO form too
@@ -11051,7 +11051,7 @@ function deleteISODoc(i){
 // ═══════════════════ POPULATE SELECTS ═══════════════════
 function populateOrderSelects(){
   const custSel=document.getElementById('o-cust');
-  if(custSel) custSel.innerHTML=db.customers.map(c=>`<option value="${c.code}">${c.name} (${c.code})</option>`).join('');
+  if(custSel) custSel.innerHTML=db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
   // Material — show all by default (filtered by type when user picks type)
   const matSel=document.getElementById('o-mat');
   if(matSel) matSel.innerHTML='<option value="">— Select from stock —</option>'+db.material.map(m=>`<option value="${m.ref}">${m.ref} — ${m.grade} · ${m.form} · ${m.size} (${m.qty} ${m.unit})</option>`).join('');
