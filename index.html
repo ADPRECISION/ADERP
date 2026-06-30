@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A&D Precision ERP v3</title>
+<title>A&D Precision Ltd Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -368,7 +368,7 @@ tbody tr:hover td{background:var(--bg3)}
     <div>
       <div class="lb-logo">
         <div class="lb-icon">A</div>
-        <div class="lb-name">A&D PRECISION<br>ERP SYSTEM</div>
+        <div class="lb-name">A&D PRECISION LTD<br>PLANNER</div>
       </div>
       <div class="lb-features">
         <div class="lb-feat"><span>▦</span> Works Order Management</div>
@@ -403,7 +403,7 @@ tbody tr:hover td{background:var(--bg3)}
   <div class="topbar">
     <div class="tb-logo">
       <div class="tb-icon">A</div>
-      <div class="tb-name">A&D PRECISION ERP</div>
+      <div class="tb-name">A&D PRECISION LTD PLANNER</div>
     </div>
     <div class="tb-divider"></div>
     <div class="tb-breadcrumb" id="topbar-page"></div>
@@ -1264,9 +1264,8 @@ tbody tr:hover td{background:var(--bg3)}
               <div class="fg"><label>Labour rate (£/hr default)</label><input id="cfg-rate" type="number" value="45"/></div>
               <div class="fg"><label>Calibration warning — days before due date</label><input id="cfg-cal-warn" type="number" value="30" min="1" max="365"/></div>
               <div class="fg"><label>Default delivery address</label><textarea id="cfg-addr">A&D Precision Ltd
-Unit 4, Industrial Estate
-Town, County, PC1 2AB
-Tel: 01234 567000</textarea></div>
+Unit 2B, Barkers Lane
+Snainton, YO13 9BD</textarea></div>
               <button class="primary" onclick="saveSettings()">Save settings</button>
             </div>
           </div>
@@ -2358,7 +2357,7 @@ let returnTarget = null; // {idx} — returnable stock item being returned
 
 // ═══════════════════ DB ═══════════════════
 let db = {
-  settings:{company:'A&D Precision Ltd', rate:45, addr:'A&D Precision Ltd\nUnit 4, Industrial Estate\nTown, County, PC1 2AB\nTel: 01234 567000', calWarnDays:30},
+  settings:{company:'A&D Precision Ltd', rate:45, addr:'A&D Precision Ltd\nUnit 2B, Barkers Lane\nSnainton, YO13 9BD', calWarnDays:30},
   customers:[], suppliers:[], material:[], stock:[], tools:[], programs:[], parts:[],
   orders:[], pos:[], dns:[], ncrs:[], timeLogs:[], isoDocs:[], gauges:[], machines:[], staging:[], finishedParts:[], scrapLog:[], sparesStock:[], holidays:[], pm:[], messages:[], rfqs:[], coolantChecks:[], coolantProducts:[], stockUsage:[], stockCheckouts:[]
 };
