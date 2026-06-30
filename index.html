@@ -1641,36 +1641,18 @@ Snainton, YO13 9BD</textarea></div>
 
 <!-- CONSUME MATERIAL MODAL -->
 <div class="modal-overlay" id="modal-consume-material">
-<div class="modal" style="width:500px">
+<div class="modal" style="width:560px">
   <div class="modal-head"><h3>📦 Consume Material</h3><button class="ghost" onclick="closeModal('modal-consume-material')">✕</button></div>
   <div class="modal-content">
     <div id="consume-job-info" style="background:var(--bg3);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;font-size:12.5px"></div>
 
     <div class="sec-title">Material from stock (filtered to WO spec)</div>
-    <div class="fg">
-      <label>Select matching stock</label>
-      <select id="consume-mat-sel" onchange="updateConsumeStock()"></select>
-    </div>
-    <div id="consume-stock-info" style="font-size:11px;min-height:16px;margin-bottom:10px"></div>
-
-    <!-- PO number — editable so the real PO can be entered once known -->
-    <div class="g2">
-      <div class="fg">
-        <label>PO number</label>
-        <input id="consume-po" style="font-family:var(--mono)" placeholder="e.g. PO-001 (enter once known)" data-tip="Edit this if the WO was created before the material PO was raised"/>
-      </div>
-      <div class="fg">
-        <label>Heat / cert / GRN number</label>
-        <input id="consume-heat" readonly style="background:var(--bg3);font-family:var(--mono)" placeholder="Auto-filled"/>
-      </div>
-    </div>
+    <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">Add a line per stock item used — e.g. part of a 3000mm bar and part of a 500mm bar for the same job.</div>
+    <div id="consume-mat-lines"></div>
+    <button class="xs" type="button" onclick="addConsumeMatLine()" style="margin-bottom:10px">+ Add material line</button>
 
     <div class="sec-title">Quantity</div>
     <div class="g2">
-      <div class="fg">
-        <label>Stock qty to consume (bars/billets)</label>
-        <input type="number" id="consume-qty" step="0.01" min="0.01" placeholder="e.g. 2 bars"/>
-      </div>
       <div class="fg">
         <label>Parts to make <span style="color:var(--amber)">(min: WO qty)</span></label>
         <input type="number" id="consume-parts-qty" min="1" placeholder="e.g. 55"/>
@@ -5575,6 +5557,9 @@ function clockOutSession(sessionId){
 }
 
 // ── Consume Material ──
+let consumeMatLines = [];
+let consumeMatOptions = [];
+
 function openConsumeMaterial(woId, opIdx){
   clockWizardState.woId = woId;
   clockWizardState.opIdx = opIdx;
@@ -5590,35 +5575,20 @@ function openConsumeMaterial(woId, opIdx){
 
   // Filter stock to only matching material
   // Match by: exact ref if specified, OR by type if specified, OR show all if nothing specified
-  const sel = document.getElementById('consume-mat-sel');
   let matchingStock = db.material.filter(m=>m.qty>0);
-
   if(o.mat){
-    // Exact ref specified — only show that one
     matchingStock = db.material.filter(m=>m.ref===o.mat);
   } else if(o.matType){
-    // Type specified — filter to matching type
     matchingStock = db.material.filter(m=>m.type===o.matType&&m.qty>0);
   }
+  consumeMatOptions = matchingStock;
 
-  if(!matchingStock.length){
-    sel.innerHTML='<option value="">⚠ No matching material in stock</option>';
-  } else {
-    sel.innerHTML = '<option value="">— Select matching stock —</option>' +
-      matchingStock.map(m=>`<option value="${m.ref}" ${m.ref===o.mat?'selected':''}>
-        ${m.ref} — ${m.grade} · ${m.size} · ${m.qty} ${m.unit} · PO: ${m.po||'—'} · Cert: ${m.cert||'—'}
-      </option>`).join('');
-  }
+  consumeMatLines = [{ref: (o.mat && matchingStock.length===1) ? matchingStock[0].ref : '', qty:'', po:''}];
+  renderConsumeMatLines();
 
-  document.getElementById('consume-qty').value = o.matqty||1;
   document.getElementById('consume-parts-qty').value = o.qty; // default = WO qty, operator can increase
-  document.getElementById('consume-po').value='';
-  document.getElementById('consume-heat').value='';
   document.getElementById('consume-err').textContent='';
   document.getElementById('consume-parts-warn').textContent='';
-
-  // If exact match selected, fill details immediately
-  if(o.mat && matchingStock.length===1) updateConsumeStock();
 
   // Parts qty validation
   document.getElementById('consume-parts-qty').oninput = function(){
@@ -5638,74 +5608,118 @@ function openConsumeMaterial(woId, opIdx){
   openModal('modal-consume-material');
 }
 
-function updateConsumeStock(){
-  const ref = document.getElementById('consume-mat-sel').value;
-  const info = document.getElementById('consume-stock-info');
-  const poEl = document.getElementById('consume-po');
-  const heatEl = document.getElementById('consume-heat');
-  if(!ref){ info.textContent=''; poEl.value=''; heatEl.value=''; return; }
+function renderConsumeMatLines(){
+  const wrap = document.getElementById('consume-mat-lines');
+  if(!wrap) return;
+  const optsHtml = !consumeMatOptions.length
+    ? '<option value="">⚠ No matching material in stock</option>'
+    : '<option value="">— Select matching stock —</option>' +
+      consumeMatOptions.map(m=>`<option value="${m.ref}">${m.ref} — ${m.grade} · ${m.size} · ${m.qty} ${m.unit} · PO: ${m.po||'—'} · Cert: ${m.cert||'—'}</option>`).join('');
+
+  wrap.innerHTML = consumeMatLines.map((line,i)=>{
+    const mat = db.material.find(m=>m.ref===line.ref);
+    return `<div class="consume-mat-line" style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:8px">
+      <div class="g2">
+        <div class="fg"><label>Stock item</label>
+          <select onchange="setConsumeLineRef(${i}, this.value)">${optsHtml}</select>
+        </div>
+        <div class="fg"><label>Qty to consume</label>
+          <input type="number" step="0.01" min="0.01" value="${line.qty}" oninput="setConsumeLineQty(${i}, this.value)" placeholder="e.g. 0.5 of a bar"/>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="fg"><label>PO number</label>
+          <input style="font-family:var(--mono)" value="${line.po}" oninput="setConsumeLinePO(${i}, this.value)" placeholder="e.g. PO-001"/>
+        </div>
+        <div class="fg"><label>Heat / cert</label>
+          <input readonly style="background:var(--bg2);font-family:var(--mono)" value="${mat?(mat.cert||'—'):''}"/>
+        </div>
+      </div>
+      ${mat?`<div style="font-size:11px;padding:6px 8px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--accent)">
+        <strong>${mat.grade}</strong> · ${mat.form} · ${mat.size} &nbsp;·&nbsp; In stock: <strong style="color:${mat.qty<2?'var(--red)':'var(--green)'}">${mat.qty} ${mat.unit}</strong> &nbsp;·&nbsp; Location: ${mat.loc||'—'}
+      </div>`:''}
+      ${consumeMatLines.length>1?`<button class="ghost xs" type="button" onclick="removeConsumeMatLine(${i})" style="margin-top:6px">✕ Remove line</button>`:''}
+    </div>`;
+  }).join('');
+
+  // Re-select the chosen option in each line's dropdown (innerHTML rebuild loses selection)
+  [...wrap.querySelectorAll('.consume-mat-line select')].forEach((sel,i)=>{ sel.value = consumeMatLines[i].ref||''; });
+}
+
+function setConsumeLineRef(i, ref){
+  consumeMatLines[i].ref = ref;
   const mat = db.material.find(m=>m.ref===ref);
-  if(!mat){ info.textContent='Material not found'; return; }
-  poEl.value = mat.po||'—';
-  heatEl.value = mat.cert||'—';
-  info.innerHTML = `<div style="padding:8px 10px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--accent);line-height:1.6">
-    <strong>${mat.grade}</strong> · ${mat.form} · ${mat.size}<br>
-    In stock: <strong style="color:${mat.qty<2?'var(--red)':'var(--green)'}">${mat.qty} ${mat.unit}</strong>
-    &nbsp;·&nbsp; Location: <strong>${mat.loc||'—'}</strong>
-    &nbsp;·&nbsp; Supplier: ${mat.sup||'—'}
-  </div>`;
+  if(mat && !consumeMatLines[i].po) consumeMatLines[i].po = mat.po||'';
+  renderConsumeMatLines();
+}
+function setConsumeLineQty(i, val){ consumeMatLines[i].qty = val; }
+function setConsumeLinePO(i, val){ consumeMatLines[i].po = val; }
+
+function addConsumeMatLine(){
+  consumeMatLines.push({ref:'', qty:'', po:''});
+  renderConsumeMatLines();
+}
+function removeConsumeMatLine(i){
+  consumeMatLines.splice(i,1);
+  renderConsumeMatLines();
 }
 
 function confirmConsumeMaterial(){
-  const ref = document.getElementById('consume-mat-sel').value;
-  const qty = parseFloat(document.getElementById('consume-qty').value);
   const partsQty = parseInt(document.getElementById('consume-parts-qty').value)||0;
   const err = document.getElementById('consume-err');
   const o = db.orders.find(x=>x.id===clockWizardState.woId);
 
-  if(!ref){ err.textContent='Select a material stock item'; return; }
-  if(!qty||qty<=0){ err.textContent='Enter a valid stock quantity to consume'; return; }
+  if(!consumeMatLines.length || consumeMatLines.some(l=>!l.ref)){ err.textContent='Select a material stock item on every line'; return; }
+  const refs = consumeMatLines.map(l=>l.ref);
+  if(new Set(refs).size!==refs.length){ err.textContent='Each line must use a different stock item'; return; }
+  for(const line of consumeMatLines){
+    const qty = parseFloat(line.qty);
+    if(!qty||qty<=0){ err.textContent='Enter a valid quantity to consume on every line'; return; }
+    const mat = db.material.find(m=>m.ref===line.ref);
+    if(!mat){ err.textContent='Material not found: '+line.ref; return; }
+    if(qty>mat.qty){ err.textContent=`Only ${mat.qty} ${mat.unit} in stock for ${line.ref} — cannot consume ${qty}`; return; }
+  }
   if(partsQty<o.qty){ err.textContent=`Parts to make (${partsQty}) cannot be less than WO qty (${o.qty})`; return; }
 
-  const mat = db.material.find(m=>m.ref===ref);
-  if(!mat){ err.textContent='Material not found'; return; }
-  if(qty>mat.qty){ err.textContent=`Only ${mat.qty} ${mat.unit} in stock — cannot consume ${qty}`; return; }
-
-  // Use the PO number as entered/edited by the operator (may have been blank or a placeholder when the WO was created)
-  const enteredPO = document.getElementById('consume-po').value.trim();
-  if(enteredPO && enteredPO!==mat.po){
-    mat.po = enteredPO; // update the stock record so future allocations show the correct PO too
+  const consumed = [];
+  for(const line of consumeMatLines){
+    const mat = db.material.find(m=>m.ref===line.ref);
+    const qty = parseFloat(line.qty);
+    const enteredPO = (line.po||'').trim();
+    if(enteredPO && enteredPO!==mat.po) mat.po = enteredPO;
+    mat.qty = Math.max(0, mat.qty-qty);
+    mat.alloc = clockWizardState.woId;
+    consumed.push({ref:line.ref, grade:mat.grade, qty, po:enteredPO||mat.po||'', heat:mat.cert||''});
   }
-
-  // Deduct from material stock
-  mat.qty = Math.max(0, mat.qty-qty);
-  mat.alloc = clockWizardState.woId;
 
   // Mark the consume op as done, store traceability info
   const op = o.ops[clockWizardState.opIdx];
   op.done = true;
   op.by = curUser.name;
   op.ts = nowStr();
-  op.materialUsed = ref;
-  op.materialGrade = mat.grade;
-  op.materialQty = qty;
-  op.materialPO = enteredPO||mat.po||'';
-  op.materialHeat = mat.cert||'';
+  op.materialConsumed = consumed;
+  // Keep legacy single-value fields populated from the first line for any older code/reports that read them
+  op.materialUsed = consumed[0].ref;
+  op.materialGrade = consumed[0].grade;
+  op.materialQty = consumed.reduce((s,c)=>s+c.qty,0);
+  op.materialPO = consumed[0].po;
+  op.materialHeat = consumed[0].heat;
 
   // Flag if the operator consumed a different material batch than the WO was created against,
   // so a substitution is traceable rather than silently accepted
-  if(o.mat && o.mat!==ref){
+  if(o.mat && !consumed.some(c=>c.ref===o.mat)){
     op.materialSubstituted = true;
     if(!o.statusHistory) o.statusHistory=[];
-    o.statusHistory.push({from:o.status, to:o.status, by:curUser.name, ts:nowStr(), reason:`Material substituted: WO specified "${o.mat}" but "${ref}" was consumed`});
-    toast(`⚠ Note: WO specified material "${o.mat}" but "${ref}" was consumed — logged as a substitution`,'warn');
+    o.statusHistory.push({from:o.status, to:o.status, by:curUser.name, ts:nowStr(), reason:`Material substituted: WO specified "${o.mat}" but ${consumed.map(c=>c.ref).join(', ')} was consumed`});
+    toast(`⚠ Note: WO specified material "${o.mat}" but a different stock item was consumed — logged as a substitution`,'warn');
   }
 
   // Set the total parts in play — this becomes the fixed total for all ops
   o.totalPartsInPlay = partsQty;
 
   closeModal('modal-consume-material');
-  toast(`✓ Consumed: ${qty} ${mat.unit} of ${mat.grade} · PO: ${op.materialPO||'—'} · Cert: ${mat.cert||'—'} · Making ${partsQty} parts`,'success');
+  const summary = consumed.map(c=>`${c.qty} ${c.ref}`).join(' + ');
+  toast(`✓ Consumed: ${summary} · Making ${partsQty} parts`,'success');
 
   // Refresh op list
   setTimeout(()=>{
