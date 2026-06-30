@@ -777,6 +777,7 @@ tbody tr:hover td{background:var(--bg3)}
 
         <div class="tabs" id="rfq-tabs" style="margin-bottom:14px">
           <div class="tab active" onclick="setRFQTab('all',this)">All <span class="tab-count" id="rfq-tc-all">0</span></div>
+          <div class="tab" onclick="setRFQTab('Draft',this)">Drafts <span class="tab-count" id="rfq-tc-draft">0</span></div>
           <div class="tab" onclick="setRFQTab('Pending',this)">Pending <span class="tab-count" id="rfq-tc-pending">0</span></div>
           <div class="tab" onclick="setRFQTab('Quoted',this)">Quoted <span class="tab-count" id="rfq-tc-quoted">0</span></div>
           <div class="tab" onclick="setRFQTab('Accepted',this)">Accepted <span class="tab-count" id="rfq-tc-accepted">0</span></div>
@@ -2338,6 +2339,22 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-footer">
     <button onclick="closeModal('modal-rfq-quote')">Cancel</button>
     <button class="primary" onclick="saveRFQQuote()">Save quote</button>
+  </div>
+</div></div>
+
+<div class="modal-overlay" id="modal-rfq-draft-add">
+<div class="modal" style="width:440px">
+  <div class="modal-head"><h3>Add to draft RFQ</h3><button class="ghost" onclick="closeModal('modal-rfq-draft-add')">✕</button></div>
+  <div class="modal-content">
+    <div class="alert al-info" style="margin-bottom:14px;font-size:12px" id="rda-summary"></div>
+    <div class="fg"><label>Supplier</label><select id="rda-supplier"></select></div>
+    <div class="alert" style="margin-top:10px;font-size:11.5px;color:var(--txt3)">
+      If a draft RFQ already exists for this supplier it'll be added as another line item. Otherwise a new draft is started. Nothing is sent to the supplier until you click "Send RFQ" on the Drafts tab.
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button onclick="closeModal('modal-rfq-draft-add')">Cancel</button>
+    <button class="primary" onclick="confirmAddToDraftRFQ()">Add line item</button>
   </div>
 </div></div>
 
@@ -7800,10 +7817,11 @@ function setRFQTab(f,el){
 function renderRFQs(){
   if(!db.rfqs) db.rfqs=[];
 
-  const counts={all:db.rfqs.length,Pending:0,Quoted:0,Accepted:0,Declined:0,Ordered:0};
+  const counts={all:db.rfqs.length,Draft:0,Pending:0,Quoted:0,Accepted:0,Declined:0,Ordered:0};
   db.rfqs.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
   const setCount=(id,n)=>{const el=document.getElementById(id); if(el) el.textContent=n||'';};
   setCount('rfq-tc-all',counts.all);
+  setCount('rfq-tc-draft',counts.Draft);
   setCount('rfq-tc-pending',counts.Pending);
   setCount('rfq-tc-quoted',counts.Quoted);
   setCount('rfq-tc-accepted',counts.Accepted);
@@ -7814,13 +7832,22 @@ function renderRFQs(){
   const tbody=document.getElementById('rfq-tbody');
   if(!tbody) return;
 
-  const statusColors={Pending:'b-amber',Quoted:'b-blue',Accepted:'b-green',Declined:'b-red',Ordered:'b-blue'};
+  const statusColors={Draft:'b-gray',Pending:'b-amber',Quoted:'b-blue',Accepted:'b-green',Declined:'b-red',Ordered:'b-blue'};
 
   tbody.innerHTML=list.length?list.map(r=>{
     const i=db.rfqs.indexOf(r);
     const isOther=r.kind==='other';
-    const matSpec=isOther?(r.itemDesc||'—'):`${r.grade||'—'}${r.dia?' Ø'+r.dia+'mm':''}`;
-    const qtyLine=isOther?`${r.qty} ${r.unit||''}`.trim():`${r.qtyMm}mm (${(r.qtyMm/1000).toFixed(2)}m)`;
+    const isMultiItem=!!(r.items && r.items.length);
+    const matSpec=isMultiItem?
+      r.items.map((it,ii)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+        <span>${it.grade||'—'}${it.dia?' Ø'+it.dia+'mm':''} — ${it.qtyMm}mm <span style="color:var(--txt3);font-size:10px">(${it.partDesc||'—'})</span></span>
+        ${r.status==='Draft'?`<button class="ghost xs" style="color:var(--red);padding:0 4px" onclick="removeDraftRFQItem(${i},${ii})" data-tip="Remove this line">✕</button>`:''}
+      </div>`).join(''):
+      (isOther?(r.itemDesc||'—'):`${r.grade||'—'}${r.dia?' Ø'+r.dia+'mm':''}`);
+    const qtyLine=isMultiItem?
+      `${r.items.length} line item${r.items.length!==1?'s':''} · ${r.items.reduce((a,it)=>a+(it.qtyMm||0),0)}mm total`:
+      (isOther?`${r.qty} ${r.unit||''}`.trim():`${r.qtyMm}mm (${(r.qtyMm/1000).toFixed(2)}m)`);
+    const qtyCol=isMultiItem?`${r.items.reduce((a,it)=>a+(it.qtyMm||0),0)}mm`:(isOther?`${r.qty} ${r.unit||''}`.trim():r.qtyMm+'mm');
     return `<tr>
       <td class="td-mono" style="color:var(--accent)">${r.id}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${r.date}</td>
@@ -7828,8 +7855,8 @@ function renderRFQs(){
         <div style="font-weight:500">${matSpec}</div>
         <div style="font-size:10.5px;color:var(--txt3)">${qtyLine}</div>
       </td>
-      <td class="td-mono">${isOther?`${r.qty} ${r.unit||''}`.trim():r.qtyMm+'mm'}</td>
-      <td style="font-size:11.5px">${r.partDesc||'—'}${r.partQty?` (${r.partQty} off)`:''}</td>
+      <td class="td-mono">${qtyCol}</td>
+      <td style="font-size:11.5px">${isMultiItem?'Multiple jobs':(r.partDesc||'—')+(r.partQty?` (${r.partQty} off)`:'')}</td>
       <td style="font-size:11.5px">${r.supName||'<span style="color:var(--txt3)">Not specified</span>'}
         ${r.quotedPrice?`<div style="font-size:10.5px;color:var(--green);margin-top:2px">£${r.quotedPrice.toFixed(2)}${r.quotedLead?' · '+r.quotedLead:''}</div>`:''}
       </td>
@@ -7837,6 +7864,10 @@ function renderRFQs(){
         ${r.convertedPO?`<div style="margin-top:3px"><a href="#" onclick="navigate('po');return false;" style="font-size:10px;color:var(--accent)">→ ${r.convertedPO}</a></div>`:''}
       </td>
       <td style="white-space:nowrap">
+        ${r.status==='Draft'?`
+          <button class="ghost xs" style="color:var(--accent);border-color:var(--accent)" onclick="sendDraftRFQ(${i})" data-tip="Send this draft as a real RFQ to the supplier, with all its line items">→ Send RFQ</button>
+          <button class="ghost xs" style="color:var(--red)" onclick="deleteDraftRFQ(${i})" data-tip="Delete this draft">✕ Delete</button>
+        `:''}
         ${r.status==='Pending'?`
           <button class="ghost xs" style="color:var(--accent);border-color:var(--accent)" onclick="openRFQQuoteModal(${i})" data-tip="Record the price the supplier quoted, without committing to order">£ Record quote</button>
           <button class="ghost xs" style="color:var(--red)" onclick="setRFQStatus(${i},'Declined')" data-tip="Decline this RFQ">✕ Decline</button>
@@ -7887,6 +7918,98 @@ function saveRFQQuote(){
   toast(`Quote recorded for ${r.id} — accept once the job is won`,'success');
 }
 
+// Multiple job estimates can contribute material needs to a shared draft RFQ for one
+// supplier, so they're sent to the supplier as a single consolidated request instead of
+// one RFQ per job.
+let draftRFQItem=null;
+function addToDraftRFQ(dataAttr){
+  let item;
+  try {
+    item = typeof dataAttr === 'string' ? JSON.parse(dataAttr.replace(/&quot;/g,'"')) : dataAttr;
+  } catch(e){ toast('Could not read estimate data','error'); return; }
+  if(!item.grade || !item.grade.trim() || item.grade.trim()==='—'){
+    toast('Enter a material grade in the estimator before adding to a draft RFQ','error');
+    return;
+  }
+  const approved = db.suppliers.filter(s=>s.status==='Approved');
+  if(!approved.length){ toast('No approved suppliers yet — add one or approve an existing supplier first','warn'); return; }
+  draftRFQItem = item;
+  const supSel = document.getElementById('rda-supplier');
+  if(supSel) supSel.innerHTML = approved.map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
+  document.getElementById('rda-summary').textContent =
+    `${item.grade}${item.dia?' Ø'+item.dia+'mm':''} — ${item.totalBarMm}mm for "${item.partDesc||'—'}" (${item.qty} off)`;
+  openModal('modal-rfq-draft-add');
+}
+
+function confirmAddToDraftRFQ(){
+  const item = draftRFQItem;
+  if(!item) return;
+  const supCode = document.getElementById('rda-supplier').value;
+  if(!supCode){ toast('Select an approved supplier','error'); return; }
+  const supData = db.suppliers.find(s=>s.code===supCode && s.status==='Approved');
+  if(!supData){ toast('Selected supplier is not approved','error'); return; }
+
+  if(!db.rfqs) db.rfqs=[];
+  let draft = db.rfqs.find(r=>r.status==='Draft' && r.supCode===supCode);
+  if(!draft){
+    draft = {
+      id:'RFQ-'+Date.now().toString().slice(-6),
+      date:todayISO(),
+      kind:'material',
+      items:[],
+      grade:'', dia:0, qtyMm:0, matType:'', barBreakdown:'', barOrder:[],
+      partDesc:'', partQty:0,
+      supCode, supName:supData.name,
+      due:'', notes:'',
+      status:'Draft',
+      raisedBy:curUser.name,
+      quotedPrice:0, quotedLead:'',
+      convertedPO:'',
+    };
+    db.rfqs.unshift(draft);
+  }
+  draft.items.push({
+    grade:item.grade, dia:item.dia||0, qtyMm:item.totalBarMm,
+    matType:guessMatTypeFromGrade(item.grade),
+    barOrder:item.barOrder||packBarsByMm(item.totalBarMm),
+    partDesc:item.partDesc||'', partQty:item.qty||0,
+  });
+  renderRFQs();
+  closeModal('modal-rfq-draft-add');
+  toast(`Added to draft RFQ ${draft.id} (${supData.name}) — ${draft.items.length} line${draft.items.length!==1?'s':''}`,'success');
+}
+
+function removeDraftRFQItem(i,itemIdx){
+  const r = db.rfqs[i];
+  if(!r || !r.items) return;
+  r.items.splice(itemIdx,1);
+  if(!r.items.length){
+    db.rfqs.splice(i,1);
+    toast('Draft RFQ removed (no items left)','info');
+  }
+  renderRFQs();
+}
+
+function deleteDraftRFQ(i){
+  const r = db.rfqs[i];
+  if(!r) return;
+  db.rfqs.splice(i,1);
+  renderRFQs();
+  toast(`Draft RFQ ${r.id} deleted`,'info');
+}
+
+function sendDraftRFQ(i){
+  const r = db.rfqs[i];
+  if(!r) return;
+  if(!r.items || !r.items.length){ toast('Add at least one line item first','error'); return; }
+  r.status='Pending';
+  // Roll up summary fields so legacy single-grade display/sort logic still has something sane
+  r.qtyMm = r.items.reduce((a,it)=>a+(it.qtyMm||0),0);
+  r.grade = r.items.map(it=>it.grade).join(', ');
+  renderRFQs();
+  toast(`${r.id} sent to ${r.supName} with ${r.items.length} line item${r.items.length!==1?'s':''}`,'success');
+}
+
 function raisePOFromRFQ(i){
   const r=db.rfqs[i];
   if(!r) return;
@@ -7900,7 +8023,25 @@ function raisePOFromRFQ(i){
     const supSel=document.getElementById('po-sup-sel');
     if(supSel && r.supCode) supSel.value=r.supCode;
 
-    if(r.kind==='other'){
+    if(r.items && r.items.length){
+      // Multi-item draft-originated RFQ — one PO line per bar length, per item
+      let blockIdx=0;
+      r.items.forEach(item=>{
+        const barOrder=(item.barOrder&&item.barOrder.length)?item.barOrder:[{len:3000,qty:Math.ceil(item.qtyMm/3000)}];
+        barOrder.forEach(b=>{
+          const block=blockIdx===0?document.querySelector('#po-lines .po-line-block'):(addPOLine(),document.querySelectorAll('#po-lines .po-line-block')[blockIdx]);
+          blockIdx++;
+          const setVal=(cls,val)=>{const el=block.querySelector('.'+cls); if(el) el.value=val;};
+          setVal('po-desc', `${item.grade||''} bar${item.dia?' Ø'+item.dia+'mm':''} × ${b.len}mm — for ${item.partDesc||'job'}`.trim());
+          setVal('po-ref', `${item.grade||'MAT'}-${item.dia||0}RD-${b.len}`.replace(/\s+/g,''));
+          setVal('po-qty', b.qty);
+          setVal('po-mat-type', item.matType||'');
+          setVal('po-mat-grade', item.grade||'');
+          setVal('po-mat-form', 'Bar — round');
+          setVal('po-mat-size', item.dia?`${item.dia}mm dia × ${b.len}mm`:`${b.len}mm`);
+        });
+      });
+    } else if(r.kind==='other'){
       // Single generic line for non-material RFQs (tooling, services, etc.)
       const block=document.querySelector('#po-lines .po-line-block');
       const setVal=(cls,val)=>{const el=block.querySelector('.'+cls); if(el) el.value=val;};
@@ -8252,11 +8393,13 @@ function runEstimate(){
   // real supplier price instead of staying "TBD" until the job is won.
   let matRFQ = null;
   if(!matCostKnown && matGrade && matGrade.trim() && matGrade.trim()!=='—'){
+    const gradeLower = matGrade.trim().toLowerCase();
     matRFQ = (db.rfqs||[]).find(r=>r.kind!=='other' && (r.status==='Quoted'||r.status==='Accepted') &&
-      (r.grade||'').trim().toLowerCase()===matGrade.trim().toLowerCase());
+      ((r.grade||'').trim().toLowerCase()===gradeLower || (r.items||[]).some(it=>(it.grade||'').trim().toLowerCase()===gradeLower)));
     if(matRFQ && matRFQ.quotedPrice){
-      // Quoted price is for the whole RFQ order — scale to this job's bar mm share
-      const rfqTotalMm = matRFQ.qtyMm || totalBarMm;
+      // Quoted price is for the whole RFQ order (all line items combined, if a multi-item
+      // draft RFQ) — scale to this job's bar mm share of the total RFQ mm.
+      const rfqTotalMm = (matRFQ.items && matRFQ.items.length) ? matRFQ.items.reduce((a,it)=>a+(it.qtyMm||0),0) : (matRFQ.qtyMm || totalBarMm);
       matCost = matRFQ.quotedPrice * (totalBarMm / rfqTotalMm);
       matCostKnown = true;
     }
@@ -8361,6 +8504,11 @@ function runEstimate(){
               <button onclick="openRFQ(${JSON.stringify({grade:matGrade,dia:barDia,barOrder:barOrder.map(b=>({len:b.len,qty:b.qty})),totalBarMm,qty:totalQty,partDesc}).replace(/"/g,'&quot;')})"
                 style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:8px 16px;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
                 Create RFQ
+              </button>
+              <button onclick="addToDraftRFQ(${JSON.stringify({grade:matGrade,dia:barDia,barOrder:barOrder.map(b=>({len:b.len,qty:b.qty})),totalBarMm,qty:totalQty,partDesc}).replace(/"/g,'&quot;')})"
+                data-tip="Add this material need as a line item to a shared draft RFQ for one supplier, alongside other jobs"
+                style="cursor:pointer;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:var(--r);padding:8px 16px;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
+                + Add to draft RFQ
               </button>
             </div>`:
             `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg4);border:1px dashed var(--border3);border-radius:var(--r2)">
