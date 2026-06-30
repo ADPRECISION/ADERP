@@ -673,7 +673,7 @@ tbody tr:hover td{background:var(--bg3)}
         <div class="ph">
           <div class="ph-left"><h2>Stock</h2><p>Material, general stock and spare parts — all in one place</p></div>
           <div class="ph-actions">
-            <button class="primary" id="stock-add-material-btn" onclick="openModal('modal-material')" data-tip="Register a new raw material specification">+ Add material</button>
+            <button class="primary" id="stock-add-material-btn" onclick="openModal('modal-material');toggleMatBarLen()" data-tip="Register a new raw material specification">+ Add material</button>
             <button class="primary" id="stock-add-general-btn" style="display:none" onclick="openModal('modal-stock')" data-tip="Add a new item to the general stock register">+ Add item</button>
           </div>
         </div>
@@ -1405,10 +1405,11 @@ Snainton, YO13 9BD</textarea></div>
       <div class="fg"><label>Material ref</label><input id="m-ref" placeholder="e.g. SS-316L-25RD"/></div>
       <div class="fg"><label>Type</label><select id="m-type"><option>Stainless</option><option>Steel</option><option>Aluminium</option><option>Brass</option><option>Titanium</option><option>Nylon</option><option>Other</option></select></div>
       <div class="fg full"><label>Material grade</label><input id="m-grade" placeholder="e.g. 316L Stainless, EN8, 6082 T6"/></div>
-      <div class="fg"><label>Form</label><select id="m-form"><option>Bar — round</option><option>Bar — square</option><option>Bar — hex</option><option>Plate</option><option>Sheet</option><option>Billet</option><option>Tube</option></select></div>
+      <div class="fg"><label>Form</label><select id="m-form" onchange="toggleMatBarLen()"><option>Bar — round</option><option>Bar — square</option><option>Bar — hex</option><option>Plate</option><option>Sheet</option><option>Billet</option><option>Tube</option></select></div>
       <div class="fg"><label>Size</label><input id="m-size" placeholder="e.g. 25mm dia × 3000mm"/></div>
-      <div class="fg"><label>Quantity</label><input id="m-qty" type="number" value="1" min="0"/></div>
+      <div class="fg"><label>Quantity (bars)</label><input id="m-qty" type="number" value="1" min="0"/></div>
       <div class="fg"><label>Unit</label><select id="m-unit"><option>bar</option><option>pcs</option><option>kg</option><option>m</option><option>sheet</option><option>billet</option></select></div>
+      <div class="fg" id="m-barlen-wrap"><label>Length per bar (mm) <span style="font-weight:400;color:var(--txt3)">— enables remaining-length tracking</span></label><input id="m-barlen" type="number" min="0" placeholder="e.g. 3000"/></div>
       <div class="fg"><label>Location</label><input id="m-loc" placeholder="e.g. Rack A1"/></div>
       <div class="fg"><label>PO# purchased on</label><input id="m-po" placeholder="e.g. PO-001"/></div>
       <div class="fg"><label>Allocated WO</label><input id="m-alloc" placeholder="e.g. WO-001 or STOCK" value="STOCK"/></div>
@@ -5713,7 +5714,7 @@ function openConsumeMaterial(woId, opIdx){
   }
   consumeMatOptions = matchingStock;
 
-  consumeMatLines = [{ref: (o.mat && matchingStock.length===1) ? matchingStock[0].ref : (woMatRec?o.mat:''), qty:'', po:''}];
+  consumeMatLines = [{ref: (o.mat && matchingStock.length===1) ? matchingStock[0].ref : (woMatRec?o.mat:''), qty:'', lenMm:'', po:''}];
   renderConsumeMatLines();
 
   document.getElementById('consume-parts-qty').value = o.qty; // default = WO qty, operator can increase
@@ -5748,14 +5749,21 @@ function renderConsumeMatLines(){
 
   wrap.innerHTML = consumeMatLines.map((line,i)=>{
     const mat = db.material.find(m=>m.ref===line.ref);
+    const tracked = mat && mat.barLenMm>0;
+    const availMm = tracked ? (mat.qty*mat.barLenMm + (mat.remainderMm||0)) : 0;
+    const qtyField = tracked
+      ? `<div class="fg"><label>Length needed (mm)</label>
+          <input type="number" step="1" min="1" value="${line.lenMm||''}" oninput="setConsumeLineLen(${i}, this.value)" placeholder="e.g. 850"/>
+        </div>`
+      : `<div class="fg"><label>Qty to consume</label>
+          <input type="number" step="0.01" min="0.01" value="${line.qty}" oninput="setConsumeLineQty(${i}, this.value)" placeholder="e.g. 0.5 of a bar"/>
+        </div>`;
     return `<div class="consume-mat-line" style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:8px">
       <div class="g2">
         <div class="fg"><label>Stock item</label>
           <select onchange="setConsumeLineRef(${i}, this.value)">${optsHtml}</select>
         </div>
-        <div class="fg"><label>Qty to consume</label>
-          <input type="number" step="0.01" min="0.01" value="${line.qty}" oninput="setConsumeLineQty(${i}, this.value)" placeholder="e.g. 0.5 of a bar"/>
-        </div>
+        ${qtyField}
       </div>
       <div class="g2">
         <div class="fg"><label>PO number</label>
@@ -5766,7 +5774,9 @@ function renderConsumeMatLines(){
         </div>
       </div>
       ${mat?`<div style="font-size:11px;padding:6px 8px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--accent)">
-        <strong>${mat.grade}</strong> · ${mat.form} · ${mat.size} &nbsp;·&nbsp; In stock: <strong style="color:${mat.qty<2?'var(--red)':'var(--green)'}">${mat.qty} ${mat.unit}</strong> &nbsp;·&nbsp; Location: ${mat.loc||'—'}
+        <strong>${mat.grade}</strong> · ${mat.form} · ${mat.size} &nbsp;·&nbsp; In stock: <strong style="color:${mat.qty<2?'var(--red)':'var(--green)'}">${mat.qty} ${mat.unit}</strong>
+        ${tracked?` &nbsp;·&nbsp; Usable length available: <strong style="color:var(--green)">${availMm}mm</strong>${mat.remainderMm>0?` (incl. ${mat.remainderMm}mm open bar)`:''}`:''}
+        &nbsp;·&nbsp; Location: ${mat.loc||'—'}
       </div>`:''}
       ${consumeMatLines.length>1?`<button class="ghost xs" type="button" onclick="removeConsumeMatLine(${i})" style="margin-top:6px">✕ Remove line</button>`:''}
     </div>`;
@@ -5783,10 +5793,11 @@ function setConsumeLineRef(i, ref){
   renderConsumeMatLines();
 }
 function setConsumeLineQty(i, val){ consumeMatLines[i].qty = val; }
+function setConsumeLineLen(i, val){ consumeMatLines[i].lenMm = val; }
 function setConsumeLinePO(i, val){ consumeMatLines[i].po = val; }
 
 function addConsumeMatLine(){
-  consumeMatLines.push({ref:'', qty:'', po:''});
+  consumeMatLines.push({ref:'', qty:'', lenMm:'', po:''});
   renderConsumeMatLines();
 }
 function removeConsumeMatLine(i){
@@ -5803,23 +5814,47 @@ function confirmConsumeMaterial(){
   const refs = consumeMatLines.map(l=>l.ref);
   if(new Set(refs).size!==refs.length){ err.textContent='Each line must use a different stock item'; return; }
   for(const line of consumeMatLines){
-    const qty = parseFloat(line.qty);
-    if(!qty||qty<=0){ err.textContent='Enter a valid quantity to consume on every line'; return; }
     const mat = db.material.find(m=>m.ref===line.ref);
     if(!mat){ err.textContent='Material not found: '+line.ref; return; }
-    if(qty>mat.qty){ err.textContent=`Only ${mat.qty} ${mat.unit} in stock for ${line.ref} — cannot consume ${qty}`; return; }
+    if(mat.barLenMm>0){
+      const lenMm = parseFloat(line.lenMm);
+      if(!lenMm||lenMm<=0){ err.textContent='Enter a valid length (mm) to consume on every line'; return; }
+      const availMm = mat.qty*mat.barLenMm + (mat.remainderMm||0);
+      if(lenMm>availMm){ err.textContent=`Only ${availMm}mm available for ${line.ref} — cannot consume ${lenMm}mm`; return; }
+    } else {
+      const qty = parseFloat(line.qty);
+      if(!qty||qty<=0){ err.textContent='Enter a valid quantity to consume on every line'; return; }
+      if(qty>mat.qty){ err.textContent=`Only ${mat.qty} ${mat.unit} in stock for ${line.ref} — cannot consume ${qty}`; return; }
+    }
   }
   if(partsQty<o.qty){ err.textContent=`Parts to make (${partsQty}) cannot be less than WO qty (${o.qty})`; return; }
 
   const consumed = [];
   for(const line of consumeMatLines){
     const mat = db.material.find(m=>m.ref===line.ref);
-    const qty = parseFloat(line.qty);
     const enteredPO = (line.po||'').trim();
     if(enteredPO && enteredPO!==mat.po) mat.po = enteredPO;
-    mat.qty = Math.max(0, mat.qty-qty);
     mat.alloc = clockWizardState.woId;
-    consumed.push({ref:line.ref, grade:mat.grade, qty, po:enteredPO||mat.po||'', heat:mat.cert||''});
+
+    if(mat.barLenMm>0){
+      const lenMm = parseFloat(line.lenMm);
+      let need = lenMm;
+      let barsUsed = 0;
+      const openMm = mat.remainderMm||0;
+      if(openMm >= need){
+        mat.remainderMm = openMm - need;
+      } else {
+        need -= openMm;
+        barsUsed = Math.ceil(need / mat.barLenMm);
+        mat.remainderMm = barsUsed*mat.barLenMm - need;
+        mat.qty = Math.max(0, mat.qty - barsUsed);
+      }
+      consumed.push({ref:line.ref, grade:mat.grade, qty:lenMm, unit:'mm', barsUsed, po:enteredPO||mat.po||'', heat:mat.cert||''});
+    } else {
+      const qty = parseFloat(line.qty);
+      mat.qty = Math.max(0, mat.qty-qty);
+      consumed.push({ref:line.ref, grade:mat.grade, qty, unit:mat.unit, po:enteredPO||mat.po||'', heat:mat.cert||''});
+    }
   }
 
   // Mark the consume op as done, store traceability info
@@ -6507,7 +6542,7 @@ function renderMaterial(){
       <td><strong>${m.grade}</strong></td>
       <td class="td-muted">${m.form}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.size}</td>
-      <td>${badge(m.qty+' '+m.unit,m.qty<=1?'b-red':m.qty<=3?'b-amber':'b-green')}</td>
+      <td>${badge(m.qty+' '+m.unit,m.qty<=1?'b-red':m.qty<=3?'b-amber':'b-green')}${m.barLenMm?`<div style="font-size:10px;color:var(--txt3);margin-top:2px">${m.remainderMm>0?`+ ${m.remainderMm}mm open bar`:'no open bar'}</div>`:''}</td>
       <td class="td-mono td-muted" style="cursor:pointer" onclick="editMatLoc(${idx})" data-tip="Click to set/update storage location">${m.loc||'—'} ✎</td>
       <td class="td-mono" style="font-size:10.5px">${m.po?`<a href="#" onclick="viewPOById('${m.po}');return false" style="color:var(--accent)">${m.po}</a>`:'—'}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.alloc}</td>
@@ -6527,17 +6562,26 @@ function editMatLoc(idx){
   toast('Storage location updated','success');
 }
 
+function toggleMatBarLen(){
+  const form = document.getElementById('m-form').value;
+  const wrap = document.getElementById('m-barlen-wrap');
+  if(wrap) wrap.style.display = form.startsWith('Bar') ? 'block' : 'none';
+}
+
 function saveMaterial(){
   const ref=document.getElementById('m-ref').value.trim();
   if(!ref){toast('Material ref is required','error');return;}
+  const form=document.getElementById('m-form').value;
+  const barLenMm = form.startsWith('Bar') ? (parseFloat(document.getElementById('m-barlen').value)||0) : 0;
   db.material.push({
     ref,type:document.getElementById('m-type').value,
-    grade:document.getElementById('m-grade').value,form:document.getElementById('m-form').value,
+    grade:document.getElementById('m-grade').value,form,
     size:document.getElementById('m-size').value,qty:parseFloat(document.getElementById('m-qty').value)||0,
     unit:document.getElementById('m-unit').value,loc:document.getElementById('m-loc').value,
     po:document.getElementById('m-po').value,alloc:document.getElementById('m-alloc').value||'STOCK',
     sup:document.getElementById('m-sup').value,cost:parseFloat(document.getElementById('m-cost').value)||0,
-    cert:document.getElementById('m-cert').value,notes:document.getElementById('m-notes').value
+    cert:document.getElementById('m-cert').value,notes:document.getElementById('m-notes').value,
+    barLenMm, remainderMm:0,
   });
   closeModal('modal-material'); renderMaterial(); toast('Material added','success');
 }
