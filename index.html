@@ -673,7 +673,7 @@ tbody tr:hover td{background:var(--bg3)}
         <div class="ph">
           <div class="ph-left"><h2>Stock</h2><p>Material, general stock and spare parts — all in one place</p></div>
           <div class="ph-actions">
-            <button class="primary" id="stock-add-material-btn" onclick="openModal('modal-material')" data-tip="Register a new raw material specification">+ Add material</button>
+            <button class="primary" id="stock-add-material-btn" onclick="openModal('modal-material');toggleMatBarLen()" data-tip="Register a new raw material specification">+ Add material</button>
             <button class="primary" id="stock-add-general-btn" style="display:none" onclick="openModal('modal-stock')" data-tip="Add a new item to the general stock register">+ Add item</button>
           </div>
         </div>
@@ -1228,6 +1228,14 @@ tbody tr:hover td{background:var(--bg3)}
           </div>
         </div>
         <div id="gauge-banner"></div>
+
+        <div class="sec-title">Customer gauge requests</div>
+        <div class="card" style="margin-bottom:16px"><div class="tbl-wrap"><table>
+          <thead><tr><th>Gauge ID</th><th>Description</th><th>Customer</th><th>Request status</th><th>Used on WO</th><th>Actions</th></tr></thead>
+          <tbody id="gauge-req-tbody"></tbody>
+        </table></div></div>
+
+        <div class="sec-title">Gauge &amp; calibration register</div>
         <div class="card"><div class="tbl-wrap"><table>
           <thead><tr><th>Gauge ID</th><th>Description</th><th>Type</th><th>Range</th><th>Resolution</th><th>Location</th><th>Last cal.</th><th>Due date</th><th>Cert #</th><th>Interval</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="gauge-tbody"></tbody>
@@ -1242,7 +1250,7 @@ tbody tr:hover td{background:var(--bg3)}
         </div>
         <div class="search-row"><input type="text" placeholder="🔍  Search customers…" oninput="renderCustomers()" id="cust-search"/></div>
         <div class="card"><div class="tbl-wrap"><table>
-          <thead><tr><th>Code</th><th>Company</th><th>Contact</th><th>Phone</th><th>Email</th><th>Address</th><th>Orders</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Company</th><th>Contact</th><th>Phone</th><th>Email</th><th>Address</th><th>Orders</th><th>Status</th><th></th></tr></thead>
           <tbody id="cust-tbody"></tbody>
         </table></div></div>
       </div>
@@ -1397,10 +1405,11 @@ Snainton, YO13 9BD</textarea></div>
       <div class="fg"><label>Material ref</label><input id="m-ref" placeholder="e.g. SS-316L-25RD"/></div>
       <div class="fg"><label>Type</label><select id="m-type"><option>Stainless</option><option>Steel</option><option>Aluminium</option><option>Brass</option><option>Titanium</option><option>Nylon</option><option>Other</option></select></div>
       <div class="fg full"><label>Material grade</label><input id="m-grade" placeholder="e.g. 316L Stainless, EN8, 6082 T6"/></div>
-      <div class="fg"><label>Form</label><select id="m-form"><option>Bar — round</option><option>Bar — square</option><option>Bar — hex</option><option>Plate</option><option>Sheet</option><option>Billet</option><option>Tube</option></select></div>
+      <div class="fg"><label>Form</label><select id="m-form" onchange="toggleMatBarLen()"><option>Bar — round</option><option>Bar — square</option><option>Bar — hex</option><option>Plate</option><option>Sheet</option><option>Billet</option><option>Tube</option></select></div>
       <div class="fg"><label>Size</label><input id="m-size" placeholder="e.g. 25mm dia × 3000mm"/></div>
-      <div class="fg"><label>Quantity</label><input id="m-qty" type="number" value="1" min="0"/></div>
+      <div class="fg"><label>Quantity (bars)</label><input id="m-qty" type="number" value="1" min="0"/></div>
       <div class="fg"><label>Unit</label><select id="m-unit"><option>bar</option><option>pcs</option><option>kg</option><option>m</option><option>sheet</option><option>billet</option></select></div>
+      <div class="fg" id="m-barlen-wrap"><label>Length per bar (mm) <span style="font-weight:400;color:var(--txt3)">— enables remaining-length tracking</span></label><input id="m-barlen" type="number" min="0" placeholder="e.g. 3000"/></div>
       <div class="fg"><label>Location</label><input id="m-loc" placeholder="e.g. Rack A1"/></div>
       <div class="fg"><label>PO# purchased on</label><input id="m-po" placeholder="e.g. PO-001"/></div>
       <div class="fg"><label>Allocated WO</label><input id="m-alloc" placeholder="e.g. WO-001 or STOCK" value="STOCK"/></div>
@@ -1592,6 +1601,7 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-head"><h3>Raise purchase order</h3><button class="ghost" onclick="pendingRFQConversion=null;closeModal('modal-po')">✕</button></div>
   <div class="modal-content" style="max-height:80vh;overflow-y:auto">
     <div class="fg2">
+      <div class="fg"><label>PO number <span style="font-weight:400;color:var(--txt3)">(leave blank to auto-number)</span></label><input id="po-num" placeholder="e.g. PO-4471"/></div>
       <div class="fg"><label>Supplier</label><select id="po-sup-sel" onchange="fillPOAddr()"></select></div>
       <div class="fg"><label>Expected delivery</label><input id="po-exp" type="date"/></div>
     </div>
@@ -1867,7 +1877,6 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-head"><h3>Add customer</h3><button class="ghost" onclick="closeModal('modal-customer')">✕</button></div>
   <div class="modal-content">
     <div class="fg2">
-      <div class="fg"><label>Customer code</label><input id="cust-code" placeholder="e.g. CUST-004"/></div>
       <div class="fg"><label>Status</label><select id="cust-status"><option>Active</option><option>Inactive</option><option>Prospect</option></select></div>
       <div class="fg full"><label>Company name</label><input id="cust-name"/></div>
       <div class="fg"><label>Contact name</label><input id="cust-contact"/></div>
@@ -1932,6 +1941,27 @@ Snainton, YO13 9BD</textarea></div>
 <div class="modal-overlay" id="modal-view-wo">
   <div class="modal" id="modal-view-wo-body" style="width:680px"></div>
 </div>
+
+<!-- ADMIN EDIT WO MODAL -->
+<div class="modal-overlay" id="modal-edit-wo">
+<div class="modal" style="width:560px">
+  <div class="modal-head"><h3>Edit work order</h3><button class="ghost" onclick="closeModal('modal-edit-wo')">✕</button></div>
+  <div class="modal-content">
+    <input type="hidden" id="ewo-id"/>
+    <div class="fg2">
+      <div class="fg"><label>Customer PO ref</label><input id="ewo-custpo"/></div>
+      <div class="fg"><label>Quantity</label><input id="ewo-qty" type="number" min="1"/></div>
+      <div class="fg"><label>Drawing / part number</label><input id="ewo-pn"/></div>
+      <div class="fg"><label>Revision</label><input id="ewo-rev"/></div>
+      <div class="fg"><label>Due date</label><input id="ewo-due" type="date"/></div>
+      <div class="fg"><label>Priority</label><select id="ewo-pri"><option>Normal</option><option>Urgent</option></select></div>
+      <div class="fg"><label>Assigned to</label><input id="ewo-assign"/></div>
+      <div class="fg"><label>Quoted price £</label><input id="ewo-quoted" type="number" step="0.01"/></div>
+      <div class="fg full"><label>Notes</label><textarea id="ewo-notes" rows="2"></textarea></div>
+    </div>
+  </div>
+  <div class="modal-footer"><button onclick="closeModal('modal-edit-wo')">Cancel</button><button class="primary" onclick="saveEditWO()">Save changes</button></div>
+</div></div>
 
 <!-- VIEW PO MODAL -->
 <div class="modal-overlay" id="modal-view-po-print">
@@ -2250,7 +2280,6 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-head"><h3>Add new customer</h3><button class="ghost" onclick="closeModal('modal-est-customer')">✕</button></div>
   <div class="modal-content">
     <div class="fg2">
-      <div class="fg"><label>Customer code</label><input id="est-cust-code" placeholder="e.g. CUST-005"/></div>
       <div class="fg"><label>Status</label><select id="est-cust-status"><option>Active</option><option>Prospect</option></select></div>
       <div class="fg full"><label>Company name</label><input id="est-cust-name"/></div>
       <div class="fg"><label>Contact name</label><input id="est-cust-contact"/></div>
@@ -4647,6 +4676,14 @@ function saveOrder(){
   const custEl=document.getElementById('o-cust');
   const id=nextID('WO-',db.orders);
   const matRef=document.getElementById('o-mat').value;
+  const matqtyVal=parseFloat(document.getElementById('o-matqty').value)||1;
+  if(matRef){
+    const matRec=db.material.find(m=>m.ref===matRef);
+    if(matRec && matqtyVal>matRec.qty){
+      toast(`Only ${matRec.qty} ${matRec.unit} of ${matRef} in stock — cannot allocate ${matqtyVal}`,'error');
+      return;
+    }
+  }
 
   db.orders.push({
     id,
@@ -4678,6 +4715,34 @@ function saveOrder(){
     readBy:[curUser.name],
   });
   notifyNewRecord('orders', id, `New works order ${id} — ${partVal} (${custEl.options[custEl.selectedIndex]?.text||''})`);
+
+  // First works order for a customer promotes them from Prospect to Active
+  const ordCust=(db.customers||[]).find(c=>c.code===custEl.value);
+  if(ordCust && ordCust.status==='Prospect'){
+    ordCust.status='Active';
+    renderCustomers();
+  }
+
+  // Log/refresh the drawing (part) number against the Parts register
+  const pnVal=document.getElementById('o-pn').value.trim();
+  if(pnVal){
+    if(!db.parts) db.parts=[];
+    const existingPart=db.parts.find(p=>p.pn===pnVal);
+    if(existingPart){
+      existingPart.lastorder=todayISO();
+      existingPart.ordercount=(existingPart.ordercount||0)+1;
+      if(!existingPart.desc) existingPart.desc=partVal;
+      if(!existingPart.cust) existingPart.cust=custEl.value;
+      if(!existingPart.mat) existingPart.mat=document.getElementById('o-mat-desc').value;
+    } else {
+      db.parts.push({
+        pn:pnVal, rev:document.getElementById('o-rev').value||'A',
+        desc:partVal, cust:custEl.value, mat:document.getElementById('o-mat-desc').value,
+        progs:'', tools:'', setup:'', drawing:'', notes:'',
+        lastorder:todayISO(), ordercount:1,
+      });
+    }
+  }
 
   // NOTE: material is NOT deducted here — deduction happens when operator confirms consume
 
@@ -4746,6 +4811,43 @@ function fillWOMatDetails(){
   </div>`;
 }
 
+function openEditWO(id){
+  if(!isAdmin()){ toast('Only admins can edit a work order in progress','error'); return; }
+  const o=db.orders.find(x=>x.id===id);
+  if(!o) return;
+  document.getElementById('ewo-id').value=o.id;
+  document.getElementById('ewo-custpo').value=o.custpo||'';
+  document.getElementById('ewo-qty').value=o.qty;
+  document.getElementById('ewo-pn').value=o.pn||'';
+  document.getElementById('ewo-rev').value=o.rev||'A';
+  document.getElementById('ewo-due').value=o.due||'';
+  document.getElementById('ewo-pri').value=o.priority||'Normal';
+  document.getElementById('ewo-assign').value=o.assigned||'';
+  document.getElementById('ewo-quoted').value=o.quoted||'';
+  document.getElementById('ewo-notes').value=o.notes||'';
+  openModal('modal-edit-wo');
+}
+
+function saveEditWO(){
+  if(!isAdmin()){ toast('Only admins can edit a work order in progress','error'); return; }
+  const id=document.getElementById('ewo-id').value;
+  const o=db.orders.find(x=>x.id===id);
+  if(!o) return;
+  o.custpo=document.getElementById('ewo-custpo').value;
+  o.qty=parseInt(document.getElementById('ewo-qty').value)||o.qty;
+  o.pn=document.getElementById('ewo-pn').value;
+  o.rev=document.getElementById('ewo-rev').value||'A';
+  o.due=document.getElementById('ewo-due').value;
+  o.priority=document.getElementById('ewo-pri').value;
+  o.assigned=document.getElementById('ewo-assign').value;
+  o.quoted=parseFloat(document.getElementById('ewo-quoted').value)||0;
+  o.notes=document.getElementById('ewo-notes').value;
+  closeModal('modal-edit-wo');
+  renderOrders();
+  viewWO(id);
+  toast(`${id} updated`,'success');
+}
+
 function viewWO(id){
   const o=db.orders.find(x=>x.id===id);
   if(!o) return;
@@ -4776,7 +4878,7 @@ function viewWO(id){
         <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:3px">${o.id}</div>
         <h3>${o.part}</h3>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">${activeLog?`<span style="font-size:10px;font-family:var(--mono);color:var(--green);display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;display:inline-block"></span>IN PROGRESS — ${activeLog.user}</span>`:''}${statusBadge(o.status)}${o.priority==='Urgent'?badge('URGENT','b-red'):''}<button class="ghost" onclick="closeModal('modal-view-wo')" data-tip="Close this window">✕</button></div>
+      <div style="display:flex;gap:6px;align-items:center">${activeLog?`<span style="font-size:10px;font-family:var(--mono);color:var(--green);display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;display:inline-block"></span>IN PROGRESS — ${activeLog.user}</span>`:''}${statusBadge(o.status)}${o.priority==='Urgent'?badge('URGENT','b-red'):''}${isAdmin()?`<button class="ghost xs" onclick="openEditWO('${id}')" data-tip="Admin — edit this work order's details">✎ Edit</button>`:''}<button class="ghost" onclick="closeModal('modal-view-wo')" data-tip="Close this window">✕</button></div>
     </div>
     <div class="modal-content" style="max-height:75vh;overflow-y:auto">
       ${o.status==='On Hold'&&o.holdReason?`<div class="alert alert-warn" style="margin-bottom:12px">🔒 <strong>On Hold:</strong> ${o.holdReason}</div>`:''}
@@ -4874,6 +4976,14 @@ function completeOp(woId,opIdx){
     const inspSigned=prior.filter(p=>p.type==='inspect').every(p=>p.firstOffSignedBy);
     if(!allDone){toast('All operations must be complete before the Delivery Note can be issued','error');return;}
     if(!inspSigned){toast('All inspection first-offs must be signed off by a second operator before the Delivery Note can be issued','error');return;}
+    // Auto-return any customer-owned gauges used on this WO
+    if(o.gauges && o.gauges.length){
+      o.gauges.forEach(gid=>{
+        const g = db.gauges.find(x=>x.id===gid);
+        if(g && g.customerOwned && g.reqStatus==='Received') g.reqStatus='Returned';
+      });
+      renderGaugeRequests();
+    }
   }
 
   // Inspect ops — check gauges in calibration
@@ -5455,14 +5565,26 @@ function clockStartActivity(woId, opIdx, type){
   // Consume material — never needs machine
   if(op.type==='consume'){ openConsumeMaterial(woId, opIdx); return; }
 
+  // Block clock-in if a customer-owned gauge needed on this WO hasn't been received yet
+  if(o.gauges && o.gauges.length){
+    const gcheck = checkGaugesForWO(woId);
+    const notReceived = gcheck.problems && gcheck.problems.filter(p=>p.includes('not yet received'));
+    if(notReceived && notReceived.length){
+      toast('⚠ Cannot clock in — ' + notReceived.join('; '), 'error');
+      return;
+    }
+  }
+
   // Get machines for this cell
   const cell = getWOCell(o).toLowerCase();
+  const busyMachines = new Set(clockSessions.filter(s=>s.machine&&!(s.wo===woId&&s.opIdx===opIdx)).map(s=>s.machine));
   const authMachines = (db.machines||[]).filter(m=>{
     let cellMatch=true;
     if(cell==='turning') cellMatch=m.cell==='Turning';
     else if(cell==='milling') cellMatch=m.cell==='Milling';
     else if(cell==='both') cellMatch=(m.cell==='Turning'||m.cell==='Milling');
     if(!cellMatch) return false;
+    if(busyMachines.has(m.name)) return false;
     if(curUser.machines && curUser.machines.length) return curUser.machines.includes(m.name);
     return true;
   });
@@ -5587,17 +5709,19 @@ function openConsumeMaterial(woId, opIdx){
       <div><span style="color:var(--txt3)">Material spec:</span> ${o.matDesc||o.mat||'Not specified'}</div>
     </div>`;
 
-  // Filter stock to only matching material
-  // Match by: exact ref if specified, OR by type if specified, OR show all if nothing specified
+  // Filter stock to material matching the WO's spec — not just the single stock record
+  // the WO happened to be raised against, so a second physical bar of the same
+  // grade/form/size (e.g. once the first bar runs out) is selectable too.
   let matchingStock = db.material.filter(m=>m.qty>0);
-  if(o.mat){
-    matchingStock = db.material.filter(m=>m.ref===o.mat);
+  const woMatRec = o.mat ? db.material.find(m=>m.ref===o.mat) : null;
+  if(woMatRec){
+    matchingStock = db.material.filter(m=>m.qty>0 && m.grade===woMatRec.grade && m.form===woMatRec.form && m.size===woMatRec.size);
   } else if(o.matType){
     matchingStock = db.material.filter(m=>m.type===o.matType&&m.qty>0);
   }
   consumeMatOptions = matchingStock;
 
-  consumeMatLines = [{ref: (o.mat && matchingStock.length===1) ? matchingStock[0].ref : '', qty:'', po:''}];
+  consumeMatLines = [{ref: (o.mat && matchingStock.length===1) ? matchingStock[0].ref : (woMatRec?o.mat:''), qty:'', lenMm:'', po:''}];
   renderConsumeMatLines();
 
   document.getElementById('consume-parts-qty').value = o.qty; // default = WO qty, operator can increase
@@ -5632,14 +5756,21 @@ function renderConsumeMatLines(){
 
   wrap.innerHTML = consumeMatLines.map((line,i)=>{
     const mat = db.material.find(m=>m.ref===line.ref);
+    const tracked = mat && mat.barLenMm>0;
+    const availMm = tracked ? (mat.qty*mat.barLenMm + (mat.remainderMm||0)) : 0;
+    const qtyField = tracked
+      ? `<div class="fg"><label>Length needed (mm)</label>
+          <input type="number" step="1" min="1" value="${line.lenMm||''}" oninput="setConsumeLineLen(${i}, this.value)" placeholder="e.g. 850"/>
+        </div>`
+      : `<div class="fg"><label>Qty to consume</label>
+          <input type="number" step="0.01" min="0.01" value="${line.qty}" oninput="setConsumeLineQty(${i}, this.value)" placeholder="e.g. 0.5 of a bar"/>
+        </div>`;
     return `<div class="consume-mat-line" style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:8px">
       <div class="g2">
         <div class="fg"><label>Stock item</label>
           <select onchange="setConsumeLineRef(${i}, this.value)">${optsHtml}</select>
         </div>
-        <div class="fg"><label>Qty to consume</label>
-          <input type="number" step="0.01" min="0.01" value="${line.qty}" oninput="setConsumeLineQty(${i}, this.value)" placeholder="e.g. 0.5 of a bar"/>
-        </div>
+        ${qtyField}
       </div>
       <div class="g2">
         <div class="fg"><label>PO number</label>
@@ -5650,7 +5781,9 @@ function renderConsumeMatLines(){
         </div>
       </div>
       ${mat?`<div style="font-size:11px;padding:6px 8px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--accent)">
-        <strong>${mat.grade}</strong> · ${mat.form} · ${mat.size} &nbsp;·&nbsp; In stock: <strong style="color:${mat.qty<2?'var(--red)':'var(--green)'}">${mat.qty} ${mat.unit}</strong> &nbsp;·&nbsp; Location: ${mat.loc||'—'}
+        <strong>${mat.grade}</strong> · ${mat.form} · ${mat.size} &nbsp;·&nbsp; In stock: <strong style="color:${mat.qty<2?'var(--red)':'var(--green)'}">${mat.qty} ${mat.unit}</strong>
+        ${tracked?` &nbsp;·&nbsp; Usable length available: <strong style="color:var(--green)">${availMm}mm</strong>${mat.remainderMm>0?` (incl. ${mat.remainderMm}mm open bar)`:''}`:''}
+        &nbsp;·&nbsp; Location: ${mat.loc||'—'}
       </div>`:''}
       ${consumeMatLines.length>1?`<button class="ghost xs" type="button" onclick="removeConsumeMatLine(${i})" style="margin-top:6px">✕ Remove line</button>`:''}
     </div>`;
@@ -5667,10 +5800,11 @@ function setConsumeLineRef(i, ref){
   renderConsumeMatLines();
 }
 function setConsumeLineQty(i, val){ consumeMatLines[i].qty = val; }
+function setConsumeLineLen(i, val){ consumeMatLines[i].lenMm = val; }
 function setConsumeLinePO(i, val){ consumeMatLines[i].po = val; }
 
 function addConsumeMatLine(){
-  consumeMatLines.push({ref:'', qty:'', po:''});
+  consumeMatLines.push({ref:'', qty:'', lenMm:'', po:''});
   renderConsumeMatLines();
 }
 function removeConsumeMatLine(i){
@@ -5687,23 +5821,47 @@ function confirmConsumeMaterial(){
   const refs = consumeMatLines.map(l=>l.ref);
   if(new Set(refs).size!==refs.length){ err.textContent='Each line must use a different stock item'; return; }
   for(const line of consumeMatLines){
-    const qty = parseFloat(line.qty);
-    if(!qty||qty<=0){ err.textContent='Enter a valid quantity to consume on every line'; return; }
     const mat = db.material.find(m=>m.ref===line.ref);
     if(!mat){ err.textContent='Material not found: '+line.ref; return; }
-    if(qty>mat.qty){ err.textContent=`Only ${mat.qty} ${mat.unit} in stock for ${line.ref} — cannot consume ${qty}`; return; }
+    if(mat.barLenMm>0){
+      const lenMm = parseFloat(line.lenMm);
+      if(!lenMm||lenMm<=0){ err.textContent='Enter a valid length (mm) to consume on every line'; return; }
+      const availMm = mat.qty*mat.barLenMm + (mat.remainderMm||0);
+      if(lenMm>availMm){ err.textContent=`Only ${availMm}mm available for ${line.ref} — cannot consume ${lenMm}mm`; return; }
+    } else {
+      const qty = parseFloat(line.qty);
+      if(!qty||qty<=0){ err.textContent='Enter a valid quantity to consume on every line'; return; }
+      if(qty>mat.qty){ err.textContent=`Only ${mat.qty} ${mat.unit} in stock for ${line.ref} — cannot consume ${qty}`; return; }
+    }
   }
   if(partsQty<o.qty){ err.textContent=`Parts to make (${partsQty}) cannot be less than WO qty (${o.qty})`; return; }
 
   const consumed = [];
   for(const line of consumeMatLines){
     const mat = db.material.find(m=>m.ref===line.ref);
-    const qty = parseFloat(line.qty);
     const enteredPO = (line.po||'').trim();
     if(enteredPO && enteredPO!==mat.po) mat.po = enteredPO;
-    mat.qty = Math.max(0, mat.qty-qty);
     mat.alloc = clockWizardState.woId;
-    consumed.push({ref:line.ref, grade:mat.grade, qty, po:enteredPO||mat.po||'', heat:mat.cert||''});
+
+    if(mat.barLenMm>0){
+      const lenMm = parseFloat(line.lenMm);
+      let need = lenMm;
+      let barsUsed = 0;
+      const openMm = mat.remainderMm||0;
+      if(openMm >= need){
+        mat.remainderMm = openMm - need;
+      } else {
+        need -= openMm;
+        barsUsed = Math.ceil(need / mat.barLenMm);
+        mat.remainderMm = barsUsed*mat.barLenMm - need;
+        mat.qty = Math.max(0, mat.qty - barsUsed);
+      }
+      consumed.push({ref:line.ref, grade:mat.grade, qty:lenMm, unit:'mm', barsUsed, po:enteredPO||mat.po||'', heat:mat.cert||''});
+    } else {
+      const qty = parseFloat(line.qty);
+      mat.qty = Math.max(0, mat.qty-qty);
+      consumed.push({ref:line.ref, grade:mat.grade, qty, unit:mat.unit, po:enteredPO||mat.po||'', heat:mat.cert||''});
+    }
   }
 
   // Mark the consume op as done, store traceability info
@@ -5797,8 +5955,10 @@ function openStepCompletePrompt(woId, opIdx, dur, type){
   const machineSel  = document.getElementById('scp-machine-sel');
   if(type==='setup'){
     const cell = getWOCell(o).toLowerCase();
+    const busyMachines = new Set(clockSessions.filter(s=>s.machine&&!(s.wo===woId&&s.opIdx===opIdx)).map(s=>s.machine));
     const availMachines = (db.machines||[]).filter(m=>{
       if(m.status!=='Active') return false;
+      if(busyMachines.has(m.name)) return false;
       if(cell==='turning') return m.cell==='Turning';
       if(cell==='milling') return m.cell==='Milling';
       if(cell==='both') return m.cell==='Turning'||m.cell==='Milling';
@@ -6389,7 +6549,7 @@ function renderMaterial(){
       <td><strong>${m.grade}</strong></td>
       <td class="td-muted">${m.form}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.size}</td>
-      <td>${badge(m.qty+' '+m.unit,m.qty<=1?'b-red':m.qty<=3?'b-amber':'b-green')}</td>
+      <td>${badge(m.qty+' '+m.unit,m.qty<=1?'b-red':m.qty<=3?'b-amber':'b-green')}${m.barLenMm?`<div style="font-size:10px;color:var(--txt3);margin-top:2px">${m.remainderMm>0?`+ ${m.remainderMm}mm open bar`:'no open bar'}</div>`:''}</td>
       <td class="td-mono td-muted" style="cursor:pointer" onclick="editMatLoc(${idx})" data-tip="Click to set/update storage location">${m.loc||'—'} ✎</td>
       <td class="td-mono" style="font-size:10.5px">${m.po?`<a href="#" onclick="viewPOById('${m.po}');return false" style="color:var(--accent)">${m.po}</a>`:'—'}</td>
       <td class="td-mono td-muted" style="font-size:10.5px">${m.alloc}</td>
@@ -6409,17 +6569,26 @@ function editMatLoc(idx){
   toast('Storage location updated','success');
 }
 
+function toggleMatBarLen(){
+  const form = document.getElementById('m-form').value;
+  const wrap = document.getElementById('m-barlen-wrap');
+  if(wrap) wrap.style.display = form.startsWith('Bar') ? 'block' : 'none';
+}
+
 function saveMaterial(){
   const ref=document.getElementById('m-ref').value.trim();
   if(!ref){toast('Material ref is required','error');return;}
+  const form=document.getElementById('m-form').value;
+  const barLenMm = form.startsWith('Bar') ? (parseFloat(document.getElementById('m-barlen').value)||0) : 0;
   db.material.push({
     ref,type:document.getElementById('m-type').value,
-    grade:document.getElementById('m-grade').value,form:document.getElementById('m-form').value,
+    grade:document.getElementById('m-grade').value,form,
     size:document.getElementById('m-size').value,qty:parseFloat(document.getElementById('m-qty').value)||0,
     unit:document.getElementById('m-unit').value,loc:document.getElementById('m-loc').value,
     po:document.getElementById('m-po').value,alloc:document.getElementById('m-alloc').value||'STOCK',
     sup:document.getElementById('m-sup').value,cost:parseFloat(document.getElementById('m-cost').value)||0,
-    cert:document.getElementById('m-cert').value,notes:document.getElementById('m-notes').value
+    cert:document.getElementById('m-cert').value,notes:document.getElementById('m-notes').value,
+    barLenMm, remainderMm:0,
   });
   closeModal('modal-material'); renderMaterial(); toast('Material added','success');
 }
@@ -7036,6 +7205,7 @@ function calcPOTotal(){
 
 function resetPOModal(){
   poLinesCount=1;
+  const numEl=document.getElementById('po-num'); if(numEl) numEl.value='';
   document.getElementById('po-lines').innerHTML=`<div class="po-line-block" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:12px;margin-bottom:10px;position:relative">
     <div style="font-size:10px;font-family:var(--mono);color:var(--txt3);letter-spacing:.06em;margin-bottom:8px">LINE 1</div>
     <div style="display:grid;grid-template-columns:2fr 1fr 80px 100px;gap:8px;margin-bottom:8px">
@@ -7086,7 +7256,9 @@ function savePO(status){
   })).filter(l=>l.desc.trim());
 
   if(!lines.length){toast('Add at least one line item','error');return;}
-  const id=nextID('PO-',db.pos);
+  const customNum=(document.getElementById('po-num').value||'').trim();
+  if(customNum && db.pos.some(p=>p.id===customNum)){ toast(`PO number ${customNum} is already in use`,'error'); return; }
+  const id=customNum||nextID('PO-',db.pos);
   db.pos.push({
     id,sup,supname:supData?supData.name:sup,
     exp:document.getElementById('po-exp').value,
@@ -7383,7 +7555,7 @@ function renderEstimator(){
   // Populate customer select
   const custSel = document.getElementById('est-customer');
   if(custSel) custSel.innerHTML='<option value="">— Select or add customer —</option>'+
-    db.customers.map(c=>`<option value="${c.code}">${c.name} (${c.code})</option>`).join('');
+    db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
 
   // Populate material select from stock
   const sel = document.getElementById('est-mat-sel');
@@ -7787,37 +7959,39 @@ function runEstimate(){
   function usable(len){ return len - 40; }
   function partsFrom(len){ return lengthPerPart > 0 ? Math.floor(usable(len)/lengthPerPart) : 0; }
 
-  // Greedy minimum-waste: fill full bars of largest first, use smallest bar for remainder
+  // Minimum-waste combination: at each step, prefer a single bar that finishes the
+  // remaining demand outright over several full bars of a smaller length, whenever
+  // that single bar uses no more material (e.g. 1×1000mm beats 2×500mm — same mm,
+  // fewer bars/less kerf loss).
   const sortedDesc = [...allLengths].sort((a,b)=>b-a);
   const sortedAsc  = [...allLengths].sort((a,b)=>a-b);
   let barOrder = [];
   let partsStillNeeded = totalQty;
+  let guard = 0;
 
-  for(const len of sortedDesc){
-    if(partsStillNeeded <= 0) break;
-    const pp = partsFrom(len);
-    if(pp < 1) continue;
-    const fullBars = Math.floor(partsStillNeeded / pp);
-    if(fullBars > 0){
-      barOrder.push({len, qty:fullBars, pp});
-      partsStillNeeded -= fullBars * pp;
-    }
-  }
-  if(partsStillNeeded > 0){
+  while(partsStillNeeded > 0 && guard++ < 100){
+    let bestSingle = null;
     for(const len of sortedAsc){
       const pp = partsFrom(len);
-      if(pp >= partsStillNeeded){
-        const ex = barOrder.find(b=>b.len===len);
-        if(ex) ex.qty+=1; else barOrder.push({len,qty:1,pp});
-        partsStillNeeded=0; break;
-      }
+      if(pp >= partsStillNeeded){ bestSingle = {len, pp}; break; }
     }
-    if(partsStillNeeded > 0){
-      const big = sortedDesc.find(l=>partsFrom(l)>=1)||sortedDesc[0];
-      const pp = partsFrom(big)||1;
-      const need = Math.ceil(partsStillNeeded/pp);
-      const ex = barOrder.find(b=>b.len===big);
-      if(ex) ex.qty+=need; else barOrder.push({len:big,qty:need,pp});
+    let bestMulti = null;
+    for(const len of sortedDesc){
+      const pp = partsFrom(len);
+      if(pp < 1) continue;
+      const fullBars = Math.floor(partsStillNeeded / pp);
+      if(fullBars > 0){ bestMulti = {len, pp, qty:fullBars}; break; }
+    }
+    if(bestSingle && (!bestMulti || bestSingle.len <= bestMulti.len * bestMulti.qty)){
+      const ex = barOrder.find(b=>b.len===bestSingle.len);
+      if(ex) ex.qty+=1; else barOrder.push({len:bestSingle.len, qty:1, pp:bestSingle.pp});
+      partsStillNeeded = 0;
+    } else if(bestMulti){
+      const ex = barOrder.find(b=>b.len===bestMulti.len);
+      if(ex) ex.qty+=bestMulti.qty; else barOrder.push({len:bestMulti.len, qty:bestMulti.qty, pp:bestMulti.pp});
+      partsStillNeeded -= bestMulti.qty * bestMulti.pp;
+    } else {
+      break; // no standard length can cut even one part — leave as a shortfall, surfaced below
     }
   }
   barOrder = barOrder.filter(b=>b.qty>0);
@@ -7998,7 +8172,6 @@ function runEstimate(){
 }
 
 function openEstimatorAddCustomer(){
-  document.getElementById('est-cust-code').value='';
   document.getElementById('est-cust-name').value='';
   document.getElementById('est-cust-contact').value='';
   document.getElementById('est-cust-phone').value='';
@@ -8009,8 +8182,8 @@ function openEstimatorAddCustomer(){
 
 function saveEstimatorCustomer(){
   const name=document.getElementById('est-cust-name').value.trim();
-  const code=document.getElementById('est-cust-code').value.trim();
-  if(!name||!code){toast('Code and company name required','error');return;}
+  if(!name){toast('Company name required','error');return;}
+  const code=genCustomerCode(name);
   db.customers.push({code,name,
     contact:document.getElementById('est-cust-contact').value,
     phone:document.getElementById('est-cust-phone').value,
@@ -8023,7 +8196,7 @@ function saveEstimatorCustomer(){
   const custSel=document.getElementById('est-customer');
   if(custSel){
     custSel.innerHTML='<option value="">— Select or add customer —</option>'+
-      db.customers.map(c=>`<option value="${c.code}">${c.name} (${c.code})</option>`).join('');
+      db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
     custSel.value=code;
   }
   populateOrderSelects(); // refresh WO form too
@@ -8572,7 +8745,6 @@ function renderCustomers(){
     const idx=db.customers.indexOf(c);
     const orderCount=db.orders.filter(o=>o.custcode===c.code).length;
     return `<tr>
-      <td class="td-mono">${c.code}</td>
       <td><strong>${c.name}</strong></td>
       <td>${c.contact}</td><td class="td-mono">${c.phone}</td>
       <td style="font-size:11.5px">${c.email}</td>
@@ -8582,10 +8754,16 @@ function renderCustomers(){
       <td><button class="ghost xs danger" onclick="db.customers.splice(${idx},1);renderCustomers()" data-tip="Remove this customer">✕</button></td>
     </tr>`;}).join(''):`<tr><td colspan="9"><div class="empty-state"><p>No customers found</p></div></td></tr>`;
 }
+function genCustomerCode(name){
+  const base=(name||'CUST').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CUS';
+  let n=1, code;
+  do { code=`${base}-${String(n).padStart(3,'0')}`; n++; } while((db.customers||[]).some(c=>c.code===code));
+  return code;
+}
 function saveCustomer(){
   const name=document.getElementById('cust-name').value.trim();
-  const code=document.getElementById('cust-code').value.trim();
-  if(!name||!code){toast('Code and company name are required','error');return;}
+  if(!name){toast('Company name is required','error');return;}
+  const code=genCustomerCode(name);
   db.customers.push({code,name,contact:document.getElementById('cust-contact').value,
     phone:document.getElementById('cust-phone').value,email:document.getElementById('cust-email').value,
     addr:document.getElementById('cust-addr').value,status:document.getElementById('cust-status').value});
@@ -10537,6 +10715,7 @@ function renderGauges(){
     bannerHtml = `<div class="alert al-ok" style="margin-bottom:8px">✓ All gauges are within calibration — no action required</div>`;
   }
   document.getElementById('gauge-banner').innerHTML = bannerHtml;
+  renderGaugeRequests();
 
   document.getElementById('gauge-tbody').innerHTML = db.gauges.length ? db.gauges.map((g,i)=>{
     const status = getGaugeStatus(g);
@@ -10634,6 +10813,9 @@ function saveGauge(){
   const custCode = customerOwned ? document.getElementById('g-cust-sel').value : '';
   if(customerOwned && !custCode){ toast('Select which customer owns this gauge','error'); return; }
 
+  const isNew = gaugeEditIdx === null;
+  const prevReqStatus = !isNew ? db.gauges[gaugeEditIdx].reqStatus : null;
+
   const gaugeData = {
     id, desc,
     type: document.getElementById('g-type').value,
@@ -10644,10 +10826,10 @@ function saveGauge(){
     cert: document.getElementById('g-cert').value,
     intervalMonths: parseInt(document.getElementById('g-interval').value)||12,
     customerOwned, custCode,
+    reqStatus: customerOwned ? (prevReqStatus || 'Requested') : '',
   };
   gaugeData.status = getGaugeStatus(gaugeData);
 
-  const isNew = gaugeEditIdx === null;
   if(!isNew){
     db.gauges[gaugeEditIdx] = gaugeData;
     gaugeEditIdx = null;
@@ -10660,6 +10842,7 @@ function saveGauge(){
   }
   closeModal('modal-gauge');
   renderGauges();
+  renderGaugeRequests();
   checkCalibrationWarnings();
 
   if(isNew && customerOwned){
@@ -10679,6 +10862,7 @@ function saveGauge(){
 
 function requestGaugeFromCustomer(g){
   const cust = (db.customers||[]).find(c=>c.code===g.custCode);
+  g.reqStatus = 'Requested';
   if(!db.messages) db.messages=[];
   const now=new Date();
   db.messages.push({
@@ -10693,6 +10877,52 @@ function requestGaugeFromCustomer(g){
     readBy:[],
   });
   toast(`Posted a request to bring in ${g.id} from ${cust?cust.name:g.custCode}`,'info');
+  renderGaugeRequests();
+}
+
+// ── Customer gauge request lifecycle: Requested → Received → Returned ──
+function findWOUsingGauge(gid){
+  return (db.orders||[]).find(o=>o.gauges&&o.gauges.includes(gid)&&o.status!=='Complete'&&o.status!=='Delivered');
+}
+
+function renderGaugeRequests(){
+  const tbody = document.getElementById('gauge-req-tbody');
+  if(!tbody) return;
+  const reqGauges = (db.gauges||[]).filter(g=>g.customerOwned);
+  tbody.innerHTML = reqGauges.length ? reqGauges.map(g=>{
+    const cust = (db.customers||[]).find(c=>c.code===g.custCode);
+    const status = g.reqStatus || 'Requested';
+    const wo = findWOUsingGauge(g.id);
+    const statusColor = status==='Received'?'b-green':status==='Returned'?'b-gray':'b-amber';
+    let actions = '';
+    if(status==='Requested') actions += `<button class="ghost xs" onclick="markGaugeReceived('${g.id}')" data-tip="Mark this gauge as received from the customer">✓ Mark received</button>`;
+    if(status==='Received') actions += `<button class="ghost xs" onclick="markGaugeReturned('${g.id}')" data-tip="Mark this gauge as returned to the customer">↩ Mark returned</button>`;
+    if(status==='Returned') actions += `<button class="ghost xs" onclick="requestGaugeFromCustomer(db.gauges.find(x=>x.id==='${g.id}'))" data-tip="Request this gauge again">↻ Re-request</button>`;
+    return `<tr>
+      <td class="td-mono" style="color:var(--accent)">${g.id}</td>
+      <td>${g.desc}</td>
+      <td>${cust?cust.name:g.custCode}</td>
+      <td>${badge(status,statusColor)}</td>
+      <td class="td-mono td-muted">${wo?wo.id:'—'}</td>
+      <td style="white-space:nowrap">${actions}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6"><div class="empty-state"><div class="es-icon">📐</div><p>No customer-owned gauges requested</p></div></td></tr>`;
+}
+
+function markGaugeReceived(gid){
+  const g = db.gauges.find(x=>x.id===gid);
+  if(!g) return;
+  g.reqStatus = 'Received';
+  renderGaugeRequests();
+  toast(`${gid} marked as received from customer`,'success');
+}
+
+function markGaugeReturned(gid){
+  const g = db.gauges.find(x=>x.id===gid);
+  if(!g) return;
+  g.reqStatus = 'Returned';
+  renderGaugeRequests();
+  toast(`${gid} marked as returned to customer`,'success');
 }
 
 function markRecalibrated(i){
@@ -10759,6 +10989,9 @@ function checkGaugesForWO(woId){
     if(status==='Overdue'){
       problems.push(gid + ' (' + g.desc + ') — OVERDUE for calibration since ' + g.dueDate);
     }
+    if(g.customerOwned && g.reqStatus!=='Received'){
+      problems.push(gid + ' (' + g.desc + ') — customer-owned gauge not yet received (status: ' + (g.reqStatus||'Requested') + ')');
+    }
   }
   return {ok: problems.length===0, problems};
 }
@@ -10818,7 +11051,7 @@ function deleteISODoc(i){
 // ═══════════════════ POPULATE SELECTS ═══════════════════
 function populateOrderSelects(){
   const custSel=document.getElementById('o-cust');
-  if(custSel) custSel.innerHTML=db.customers.map(c=>`<option value="${c.code}">${c.name} (${c.code})</option>`).join('');
+  if(custSel) custSel.innerHTML=db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
   // Material — show all by default (filtered by type when user picks type)
   const matSel=document.getElementById('o-mat');
   if(matSel) matSel.innerHTML='<option value="">— Select from stock —</option>'+db.material.map(m=>`<option value="${m.ref}">${m.ref} — ${m.grade} · ${m.form} · ${m.size} (${m.qty} ${m.unit})</option>`).join('');
