@@ -6920,16 +6920,24 @@ function raiseAutoPOs(){
 function raisePOFromItem(code){
   const s=db.stock.find(x=>x.code===code)||db.material.find(x=>x.ref===code);
   if(!s){toast('Item not found','error');return;}
-  const sup=s.sup||'';
-  const supData=db.suppliers.find(x=>x.code===sup);
-  const id=nextID('PO-',db.pos);
-  db.pos.push({id,sup,supname:supData?supData.name:sup,exp:'',raised:todayISO(),status:'Draft',auto:true,
-    addr:db.settings.addr,notes:'',
-    lines:[{desc:s.desc||s.grade||code,ref:code,qty:s.reorder||1,unit:s.unit||'pcs',cost:s.cost||0}],
-    readBy:[curUser.name]});
-  notifyNewRecord('po', id, `New purchase order ${id} — ${supData?supData.name:sup}`);
-  toast(`Draft PO ${id} created for ${code}`,'success');
+
   navigate('po');
+  openModal('modal-po');
+  resetPOModal();
+
+  setTimeout(()=>{
+    const supSel=document.getElementById('po-sup-sel');
+    if(supSel && s.sup) supSel.value=s.sup;
+    fillPOAddr();
+
+    const block=document.querySelector('#po-lines .po-line-block');
+    const setVal=(cls,val)=>{const el=block.querySelector('.'+cls); if(el) el.value=val;};
+    setVal('po-desc', s.desc||s.grade||code);
+    setVal('po-ref', code);
+    setVal('po-qty', s.reorder||1);
+    setVal('po-cost', s.cost||0);
+    calcPOTotal();
+  },50);
 }
 
 // ═══════════════════ TOOLS ═══════════════════
