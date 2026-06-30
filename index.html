@@ -1721,6 +1721,10 @@ Snainton, YO13 9BD</textarea></div>
   <div class="modal-head"><h3>Clock out — step complete?</h3></div>
   <div class="modal-content">
     <div id="scp-info"></div>
+    <div id="scp-machine-wrap" style="display:none;margin-top:12px">
+      <label style="font-size:12px;color:var(--txt3);display:block;margin-bottom:4px">Machine set up on</label>
+      <select id="scp-machine-sel"></select>
+    </div>
     <div style="margin-top:14px;padding:14px;background:var(--bg3);border-radius:var(--r2);border:1.5px solid var(--border3)">
       <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
         <input type="checkbox" id="scp-done-chk" style="width:18px;height:18px;margin-top:1px;flex-shrink:0;cursor:pointer"/>
@@ -5755,6 +5759,26 @@ function openStepCompletePrompt(woId, opIdx, dur, type){
   document.getElementById('scp-dur').value = totalMins;
   document.getElementById('scp-type').value = type;
 
+  const machineWrap = document.getElementById('scp-machine-wrap');
+  const machineSel  = document.getElementById('scp-machine-sel');
+  if(type==='setup'){
+    const cell = getWOCell(o).toLowerCase();
+    const availMachines = (db.machines||[]).filter(m=>{
+      if(m.status!=='Active') return false;
+      if(cell==='turning') return m.cell==='Turning';
+      if(cell==='milling') return m.cell==='Milling';
+      if(cell==='both') return m.cell==='Turning'||m.cell==='Milling';
+      return true;
+    });
+    const lastLog = [...(db.timeLogs||[])].reverse().find(t=>t.wo===woId&&t.opIdx===opIdx&&t.type==='setup'&&t.end);
+    machineSel.innerHTML = `<option value="">— select machine —</option>` +
+      availMachines.map(m=>`<option value="${m.name}" ${lastLog&&lastLog.machine===m.name?'selected':''}>${m.name}</option>`).join('');
+    machineWrap.style.display = 'block';
+  } else {
+    machineWrap.style.display = 'none';
+    machineSel.innerHTML = '';
+  }
+
   openModal('modal-step-complete');
 }
 
@@ -5764,11 +5788,19 @@ function confirmStepComplete(){
   const dur    = parseInt(document.getElementById('scp-dur').value)||0;
   const type   = document.getElementById('scp-type').value;
   const isDone = document.getElementById('scp-done-chk').checked;
+  const selectedMachine = type==='setup' ? document.getElementById('scp-machine-sel').value : '';
+
+  if(type==='setup' && !selectedMachine){ toast('Select which machine this was set up on','error'); return; }
 
   closeModal('modal-step-complete');
 
   const o  = db.orders.find(x=>x.id===woId);
   const op = o ? o.ops[opIdx] : null;
+
+  if(selectedMachine){
+    const setupLog = [...(db.timeLogs||[])].reverse().find(t=>t.wo===woId&&t.opIdx===opIdx&&t.type==='setup'&&t.end);
+    if(setupLog) setupLog.machine = selectedMachine;
+  }
 
   if(!isDone){
     // Partial — time logged, step continues next shift
