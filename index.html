@@ -4716,6 +4716,13 @@ function saveOrder(){
   });
   notifyNewRecord('orders', id, `New works order ${id} — ${partVal} (${custEl.options[custEl.selectedIndex]?.text||''})`);
 
+  // First works order for a customer promotes them from Prospect to Active
+  const ordCust=(db.customers||[]).find(c=>c.code===custEl.value);
+  if(ordCust && ordCust.status==='Prospect'){
+    ordCust.status='Active';
+    renderCustomers();
+  }
+
   // Log/refresh the drawing (part) number against the Parts register
   const pnVal=document.getElementById('o-pn').value.trim();
   if(pnVal){
