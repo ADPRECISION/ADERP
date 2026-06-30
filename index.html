@@ -3016,6 +3016,9 @@ function logout(){
 }
 
 // ═══════════════════ NAV ═══════════════════
+// Sections follow the actual job lifecycle top-to-bottom: quote the job, buy the
+// material, plan the job, run it, inspect it, ship it, then report on it.
+// Home/Messages stay pinned at the top and Admin at the bottom as cross-cutting utilities.
 const NAV=[
   {section:'Home',items:[
     {id:'dash',icon:'◈',label:'Dashboard',tip:'Your personalised home page — today\'s tasks, alerts and a quick overview'},
@@ -3024,36 +3027,38 @@ const NAV=[
   {section:'Messages',items:[
     {id:'messages',icon:'💬',label:'Messages',tip:'Announcements, team chat and direct messages'},
   ]},
-  {section:'My Work',items:[
-    {id:'orders',icon:'▦',label:'Works orders',tip:'Create, track and manage all customer works orders and job staging'},
-    {id:'routing',icon:'⇢',label:'Routing',tip:'View and reorder the operation sequence (routing) for each job'},
-    {id:'clock',icon:'◎',label:'Job clocking',tip:'Clock on and off jobs — record setup, first-off and run times'},
-    {id:'machines',icon:'⚙',label:'Machine register',tip:'View machine details, status, staged jobs and operator access'},
+  {section:'1. Sales & Estimating',items:[
+    {id:'customers',icon:'◐',label:'Customers',tip:'Customer contact details and records'},
+    {id:'estimator',icon:'£',label:'Job estimator',tip:'Calculate material requirements and generate customer quotes',adminOnly:true},
   ]},
-  {section:'Manufacturing',items:[
-    {id:'tools',icon:'⚙',label:'Tool library',tip:'Browse cutting tools, specs and tool life tracking'},
-    {id:'programs',icon:'≣',label:'Programs',tip:'Manage CNC program files and revisions'},
-    {id:'parts',icon:'◻',label:'Part numbers',tip:'Part number register with setup sheets and linked tooling'},
-  ]},
-  {section:'Stock & Buying',items:[
-    {id:'material',icon:'▤',label:'Stock',tip:'Material, general stock and spare parts — filter by category'},
-    {id:'labels',icon:'⊡',label:'Material labels',tip:'Generate and print material identification labels'},
+  {section:'2. Stock & Buying',items:[
     {id:'rfqs',icon:'✉',label:'RFQs',tip:'Track material requests for quotation — accept/decline, then raise a PO'},
     {id:'po',icon:'⊞',label:'Purchase orders',tip:'Raise and track purchase orders to suppliers'},
     {id:'goodsin',icon:'↓',label:'Goods in',tip:'Receive deliveries and book stock into the system'},
     {id:'suppliers',icon:'◑',label:'Suppliers',tip:'Supplier contact details and records'},
+    {id:'material',icon:'▤',label:'Stock',tip:'Material, general stock and spare parts — filter by category'},
+    {id:'labels',icon:'⊡',label:'Material labels',tip:'Generate and print material identification labels'},
   ]},
-  {section:'Sales',items:[
-    {id:'customers',icon:'◐',label:'Customers',tip:'Customer contact details and records'},
-    {id:'estimator',icon:'£',label:'Job estimator',tip:'Calculate material requirements and generate customer quotes',adminOnly:true},
-    {id:'delivery',icon:'↗',label:'Delivery notes',tip:'Create and track delivery notes for despatched parts'},
-    {id:'reports',icon:'▤',label:'Reports',tip:'Generate and print weekly job, scrap, operator hours and output reports',adminOnly:true},
+  {section:'3. Plan The Job',items:[
+    {id:'orders',icon:'▦',label:'Works orders',tip:'Create, track and manage all customer works orders and job staging'},
+    {id:'routing',icon:'⇢',label:'Routing',tip:'View and reorder the operation sequence (routing) for each job'},
+    {id:'parts',icon:'◻',label:'Part numbers',tip:'Part number register with setup sheets and linked tooling'},
+    {id:'programs',icon:'≣',label:'Programs',tip:'Manage CNC program files and revisions'},
+    {id:'tools',icon:'⚙',label:'Tool library',tip:'Browse cutting tools, specs and tool life tracking'},
   ]},
-  {section:'Quality',items:[
+  {section:'4. Production',items:[
+    {id:'clock',icon:'◎',label:'Job clocking',tip:'Clock on and off jobs — record setup, first-off and run times'},
+    {id:'machines',icon:'⚙',label:'Machine register',tip:'View machine details, status, staged jobs and operator access'},
+  ]},
+  {section:'5. Quality',items:[
     {id:'ncr',icon:'⚠',label:'NCR / Quality',tip:'Raise and manage non-conformance reports'},
     {id:'gauges',icon:'📐',label:'Gauge register',tip:'Inspection equipment and calibration due dates'},
   ]},
-  {section:'Planning',items:[
+  {section:'6. Delivery',items:[
+    {id:'delivery',icon:'↗',label:'Delivery notes',tip:'Create and track delivery notes for despatched parts'},
+  ]},
+  {section:'Reports & Planning',items:[
+    {id:'reports',icon:'▤',label:'Reports',tip:'Generate and print weekly job, scrap, operator hours and output reports',adminOnly:true},
     {id:'calendar',icon:'📅',label:'Calendar',tip:'Monthly view of jobs, holidays, calibration and maintenance due dates'},
     {id:'holidays',icon:'🌴',label:'Holidays',tip:'Request and approve staff holiday'},
     {id:'pm',icon:'🔧',label:'Preventative maint.',tip:'Scheduled machine maintenance tasks and due dates'},
