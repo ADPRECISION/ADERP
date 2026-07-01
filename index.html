@@ -7621,6 +7621,7 @@ function renderEstimator(){
 function collectLineValues(){
   estLines = estLines.map((_,i)=>({
     part: document.getElementById(`ql-${i}-part`)?.value||'',
+    matForm: document.getElementById(`ql-${i}-matform`)?.value||'bar',
     partLen: parseFloat(document.getElementById(`ql-${i}-length`)?.value)||0,
     partOff: parseFloat(document.getElementById(`ql-${i}-partoff`)?.value)||5,
     qty: parseInt(document.getElementById(`ql-${i}-qty`)?.value)||0,
@@ -7628,6 +7629,12 @@ function collectLineValues(){
     matRef: document.getElementById(`ql-${i}-matsel`)?.value||'',
     matGrade: document.getElementById(`ql-${i}-grade`)?.value||'',
     barDia: parseFloat(document.getElementById(`ql-${i}-dia`)?.value)||0,
+    // billet-specific
+    billetL: parseFloat(document.getElementById(`ql-${i}-billet-l`)?.value)||0,
+    billetW: parseFloat(document.getElementById(`ql-${i}-billet-w`)?.value)||0,
+    billetH: parseFloat(document.getElementById(`ql-${i}-billet-h`)?.value)||0,
+    billetD: parseFloat(document.getElementById(`ql-${i}-billet-d`)?.value)||0,
+    billetCost: parseFloat(document.getElementById(`ql-${i}-billet-cost`)?.value)||0,
     cycleMin: parseFloat(document.getElementById(`ql-${i}-cycle`)?.value)||0,
     setupMin: parseFloat(document.getElementById(`ql-${i}-setup`)?.value)||0,
     rate: parseFloat(document.getElementById(`ql-${i}-rate`)?.value)||(db.settings.rate||45),
@@ -7644,9 +7651,37 @@ function renderQuoteLines(){
 
   container.innerHTML = estLines.map((ln, i) => {
     const partLabel = (ln.part||'').trim() || 'Unnamed';
+    const matForm = ln.matForm || 'bar';
+    const isBillet = matForm === 'billet-rect' || matForm === 'billet-round';
     const removeBtn = estLines.length > 1
       ? `<button class="ghost xs" style="color:var(--red);margin-left:auto" onclick="removeQuoteLine(${i})">× Remove</button>`
       : '';
+
+    const billetRectFields = `
+      <div class="fg2">
+        <div class="fg"><label>Billet L (mm)</label><input type="number" id="ql-${i}-billet-l" value="${ln.billetL||''}" placeholder="e.g. 150" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+        <div class="fg"><label>Billet W (mm)</label><input type="number" id="ql-${i}-billet-w" value="${ln.billetW||''}" placeholder="e.g. 80" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+        <div class="fg"><label>Billet H (mm)</label><input type="number" id="ql-${i}-billet-h" value="${ln.billetH||''}" placeholder="e.g. 60" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+      </div>
+      <div class="fg"><label>Cost per billet (£) <span style="color:var(--txt3);font-weight:400">leave blank if TBD</span></label><input type="number" id="ql-${i}-billet-cost" value="${ln.billetCost||''}" placeholder="0.00" min="0" step="0.01" oninput="runEstimateAll()"/></div>`;
+
+    const billetRoundFields = `
+      <div class="fg2">
+        <div class="fg"><label>Billet dia (mm)</label><input type="number" id="ql-${i}-billet-d" value="${ln.billetD||''}" placeholder="e.g. 120" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+        <div class="fg"><label>Billet length (mm)</label><input type="number" id="ql-${i}-billet-l" value="${ln.billetL||''}" placeholder="e.g. 200" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+      </div>
+      <div class="fg"><label>Cost per billet (£) <span style="color:var(--txt3);font-weight:400">leave blank if TBD</span></label><input type="number" id="ql-${i}-billet-cost" value="${ln.billetCost||''}" placeholder="0.00" min="0" step="0.01" oninput="runEstimateAll()"/></div>`;
+
+    const barFields = `
+      <div class="fg2">
+        <div class="fg"><label>Finished part length (mm)</label><input type="number" id="ql-${i}-length" value="${ln.partLen||''}" placeholder="e.g. 45" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+        <div class="fg"><label>Parting off (mm)</label><input type="number" id="ql-${i}-partoff" value="${ln.partOff!==undefined?ln.partOff:5}" min="0" step="0.5" oninput="runEstimateAll()"/></div>
+      </div>
+      <div class="fg"><label>Material stock <span style="color:var(--txt3);font-weight:400">(optional)</span></label>
+        <select id="ql-${i}-matsel" onchange="estimatorPickMaterialLine(${i})">${matOptions.replace(`value="${ln.matRef||''}"`,`value="${ln.matRef||''}" selected`)}</select>
+      </div>
+      <div class="fg"><label>Bar dia (mm)</label><input type="number" id="ql-${i}-dia" value="${ln.barDia||''}" placeholder="e.g. 44.45" min="1" step="0.001" oninput="runEstimateAll()"/></div>`;
+
     return `
     <div class="card" style="margin-bottom:12px">
       <div class="card-header" style="display:flex;align-items:center;gap:8px">
@@ -7659,20 +7694,20 @@ function renderQuoteLines(){
           <div>
             <div class="fg"><label>Part / job description</label><input id="ql-${i}-part" value="${(ln.part||'').replace(/"/g,'&quot;')}" placeholder="e.g. Turned Bush 40mm OD" oninput="runEstimateAll()"/></div>
             <div class="fg2">
-              <div class="fg"><label>Finished part length (mm)</label><input type="number" id="ql-${i}-length" value="${ln.partLen||''}" placeholder="e.g. 45" min="1" step="0.1" oninput="runEstimateAll()"/></div>
-              <div class="fg"><label>Parting off (mm)</label><input type="number" id="ql-${i}-partoff" value="${ln.partOff!==undefined?ln.partOff:5}" min="0" step="0.5" oninput="runEstimateAll()"/></div>
-            </div>
-            <div class="fg2">
               <div class="fg"><label>Order qty</label><input type="number" id="ql-${i}-qty" value="${ln.qty||''}" placeholder="e.g. 50" min="1" oninput="runEstimateAll()"/></div>
               <div class="fg"><label>Spares</label><input type="number" id="ql-${i}-spares" value="${ln.spares||0}" min="0" oninput="runEstimateAll()"/></div>
             </div>
-            <div class="fg"><label>Material stock <span style="color:var(--txt3);font-weight:400">(optional)</span></label>
-              <select id="ql-${i}-matsel" onchange="estimatorPickMaterialLine(${i})">${matOptions.replace(`value="${ln.matRef||''}"`,`value="${ln.matRef||''}" selected`)}</select>
+            <div class="fg"><label>Material form</label>
+              <select id="ql-${i}-matform" onchange="collectLineValues();renderQuoteLines();runEstimateAll()">
+                <option value="bar"${matForm==='bar'?' selected':''}>Bar stock</option>
+                <option value="billet-rect"${matForm==='billet-rect'?' selected':''}>Billet — rectangular (L×W×H)</option>
+                <option value="billet-round"${matForm==='billet-round'?' selected':''}>Billet — round (Ø×L)</option>
+              </select>
             </div>
             <div class="fg2">
               <div class="fg"><label>Material grade</label><input id="ql-${i}-grade" value="${(ln.matGrade||'').replace(/"/g,'&quot;')}" placeholder="e.g. 6082 T6 Aluminium" oninput="runEstimateAll()"/></div>
-              <div class="fg"><label>Bar dia (mm)</label><input type="number" id="ql-${i}-dia" value="${ln.barDia||''}" placeholder="e.g. 44.45" min="1" step="0.001" oninput="runEstimateAll()"/></div>
             </div>
+            ${matForm==='billet-rect' ? billetRectFields : matForm==='billet-round' ? billetRoundFields : barFields}
           </div>
           <!-- Right column -->
           <div>
@@ -7683,7 +7718,7 @@ function renderQuoteLines(){
           </div>
         </div>
         <div id="ql-${i}-mini" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:var(--r);font-size:12px;color:var(--txt3)">
-          Enter part length and quantity to see line summary
+          ${isBillet ? 'Enter billet dimensions and quantity to see line summary' : 'Enter part length and quantity to see line summary'}
         </div>
       </div>
     </div>`;
@@ -8389,6 +8424,8 @@ function runEstimateAll(){
   let anyLineReady = false;
 
   for(let i=0; i<estLines.length; i++){
+    const matForm  = document.getElementById(`ql-${i}-matform`)?.value || 'bar';
+    const isBillet = matForm === 'billet-rect' || matForm === 'billet-round';
     const partLen  = parseFloat(document.getElementById(`ql-${i}-length`)?.value)||0;
     const partOff  = parseFloat(document.getElementById(`ql-${i}-partoff`)?.value)||5;
     const qty      = parseInt(document.getElementById(`ql-${i}-qty`)?.value)||0;
@@ -8401,8 +8438,80 @@ function runEstimateAll(){
     const barDia   = parseFloat(document.getElementById(`ql-${i}-dia`)?.value)||0;
     const partDesc = document.getElementById(`ql-${i}-part`)?.value||'Unnamed';
     const matRef   = document.getElementById(`ql-${i}-matsel`)?.value||'';
+    // billet dims
+    const billetL    = parseFloat(document.getElementById(`ql-${i}-billet-l`)?.value)||0;
+    const billetW    = parseFloat(document.getElementById(`ql-${i}-billet-w`)?.value)||0;
+    const billetH    = parseFloat(document.getElementById(`ql-${i}-billet-h`)?.value)||0;
+    const billetD    = parseFloat(document.getElementById(`ql-${i}-billet-d`)?.value)||0;
+    const billetCost = parseFloat(document.getElementById(`ql-${i}-billet-cost`)?.value)||0;
 
     const miniEl = document.getElementById(`ql-${i}-mini`);
+
+    if(isBillet){
+      // Billet branch — qty is the driver, no bar packing
+      if(!qty){
+        if(miniEl) miniEl.innerHTML=`<span style="color:var(--txt3)">Enter order quantity to see line summary</span>`;
+        lineResults.push({ready:false, partDesc, qty, matForm});
+        continue;
+      }
+      anyLineReady = true;
+      const totalQty = qty + spares;
+
+      // Build a human-readable billet spec string
+      let billetSpec = '';
+      if(matForm==='billet-rect' && billetL && billetW && billetH)
+        billetSpec = `${billetL}×${billetW}×${billetH}mm`;
+      else if(matForm==='billet-round' && billetD && billetL)
+        billetSpec = `Ø${billetD}×${billetL}mm`;
+
+      // Material cost — use entered cost-per-billet if provided
+      let matCost = 0;
+      let matCostKnown = false;
+      if(billetCost > 0){
+        matCost = billetCost * totalQty;
+        matCostKnown = true;
+      }
+
+      const setupCost = (setupMin/60)*rate;
+      const runCost   = ((cycleMin+secMin)/60)*rate*totalQty;
+      const machiningCost = setupCost + runCost;
+      const lineCostBeforeMargin = matCost + machiningCost;
+
+      let rfqBtns = '';
+      if(!matCostKnown && matGrade && matGrade.trim()){
+        const rfqPayload = JSON.stringify({
+          kind:'other', grade:matGrade, partDesc,
+          qty:totalQty, billetSpec,
+          billetL, billetW, billetH, billetD, matForm,
+          notes:`${totalQty} off billet${billetSpec?' '+billetSpec:''} ${matGrade}`,
+        }).replace(/"/g,'&quot;');
+        rfqBtns = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button onclick="openRFQ(${rfqPayload})" style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">Create RFQ</button>
+          <button onclick="addToDraftRFQ(${rfqPayload})" style="cursor:pointer;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">+ Add to draft RFQ</button>
+        </div>`;
+      }
+
+      const dimStr = billetSpec ? `${totalQty} off ${billetSpec}` : `${totalQty} billets`;
+      if(miniEl) miniEl.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:6px">
+          <span>Material: <strong>${matGrade||'—'}</strong></span>
+          <span>Billets: <strong>${dimStr}</strong></span>
+          <span>Mat cost: <strong style="color:${matCostKnown?'var(--green)':'var(--amber)'}">${matCostKnown?'£'+matCost.toFixed(2):'TBD'}</strong></span>
+          <span>Machining: <strong>£${machiningCost.toFixed(2)}</strong></span>
+          <span>Line subtotal (ex margin): <strong>£${lineCostBeforeMargin.toFixed(2)}</strong></span>
+        </div>${rfqBtns}`;
+
+      lineResults.push({
+        ready:true, i, partDesc, qty, spares, totalQty, matForm,
+        billetSpec, billetL, billetW, billetH, billetD, billetCost,
+        matGrade, matCost, matCostKnown, machiningCost, setupCost, runCost,
+        lineCostBeforeMargin, cycleMin, setupMin, secMin, rate,
+        barOrder:[], barSummaryStr:'', totalBarMm:0, totalBars:0,
+      });
+      continue;
+    }
+
+    // Bar branch (existing logic)
     if(!partLen || !qty){
       if(miniEl) miniEl.innerHTML=`<span style="color:var(--txt3)">Enter part length and quantity to see line summary</span>`;
       lineResults.push({ready:false, partDesc, qty, partLen});
@@ -8465,7 +8574,7 @@ function runEstimateAll(){
       ready:true, i, partDesc, qty, spares, totalQty, partLen, partOff, barDia,
       barOrder, barSummaryStr, totalBarMm, totalBars,
       matGrade, matCost, matCostKnown, matRef, machiningCost, setupCost, runCost,
-      lineCostBeforeMargin, cycleMin, setupMin, secMin, rate, matRFQ,
+      lineCostBeforeMargin, cycleMin, setupMin, secMin, rate, matRFQ, matForm:'bar',
     });
   }
 
