@@ -2286,15 +2286,17 @@ Snainton, YO13 9BD</textarea></div>
 
 <!-- RFQ — RECORD SUPPLIER QUOTE (does not commit to ordering) -->
 <div class="modal-overlay" id="modal-rfq-quote">
-<div class="modal" style="width:420px">
+<div class="modal" style="width:500px">
   <div class="modal-head"><h3>Record supplier quote</h3><button class="ghost" onclick="closeModal('modal-rfq-quote')">✕</button></div>
   <div class="modal-content">
     <div class="alert al-info" style="margin-bottom:14px;font-size:12px">
       This just records the price the supplier quoted — it doesn't place an order. Use "Accept" once your own quote to the customer has been won.
     </div>
-    <div class="fg2">
-      <div class="fg"><label>Quoted price (£)</label><input id="rq-price" type="number" min="0" step="0.01"/></div>
-      <div class="fg"><label>Lead time</label><input id="rq-lead" placeholder="e.g. 5 days"/></div>
+    <div id="rq-content">
+      <!-- populated dynamically by openRFQQuoteModal() -->
+    </div>
+    <div class="fg" style="margin-top:10px">
+      <label>Lead time</label><input id="rq-lead" placeholder="e.g. 5 days"/>
     </div>
   </div>
   <div class="modal-footer">
@@ -7975,17 +7977,64 @@ function openRFQQuoteModal(i){
   const r=db.rfqs[i];
   if(!r) return;
   rfqQuoteIdx=i;
-  document.getElementById('rq-price').value = r.quotedPrice||'';
+  const content = document.getElementById('rq-content');
+  if(r.items && r.items.length > 1){
+    // Per-item pricing
+    content.innerHTML = r.items.map((it,idx)=>{
+      const label = it.partDesc
+        ? `${it.partDesc}${it.grade?' — '+it.grade:''}`
+        : (it.grade||`Item ${idx+1}`);
+      return `<div class="fg2" style="margin-bottom:6px;align-items:center">
+        <div style="font-size:12px;color:var(--txt2);padding-top:4px">${label}</div>
+        <div class="fg"><label>Price (£)</label><input type="number" id="rq-item-price-${idx}" value="${it.quotedPrice||''}" min="0" step="0.01" oninput="updateRFQTotal()" placeholder="0.00"/></div>
+      </div>`;
+    }).join('')+
+    `<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;font-size:13px;border-top:1px solid var(--border);padding-top:8px">
+      <span style="color:var(--txt3)">Total:</span>
+      <strong id="rq-total-display">£0.00</strong>
+    </div>`;
+    // Initialise total display
+    setTimeout(()=>updateRFQTotal(), 0);
+  } else {
+    // Single price
+    const price = r.quotedPrice || (r.items && r.items[0]?.quotedPrice) || '';
+    content.innerHTML = `<div class="fg"><label>Quoted price (£)</label><input id="rq-price" type="number" min="0" step="0.01" value="${price}"/></div>`;
+  }
   document.getElementById('rq-lead').value = r.quotedLead||'';
   openModal('modal-rfq-quote');
+}
+
+function updateRFQTotal(){
+  const r=db.rfqs[rfqQuoteIdx];
+  if(!r||!r.items) return;
+  const total = r.items.reduce((_,__,idx)=>{
+    return _ + (parseFloat(document.getElementById(`rq-item-price-${idx}`)?.value)||0);
+  }, 0);
+  const el = document.getElementById('rq-total-display');
+  if(el) el.textContent = '£'+total.toFixed(2);
 }
 
 function saveRFQQuote(){
   const r=db.rfqs[rfqQuoteIdx];
   if(!r) return;
-  const price=parseFloat(document.getElementById('rq-price').value)||0;
-  if(price<=0){ toast('Enter the quoted price','error'); return; }
-  r.quotedPrice=price;
+  if(r.items && r.items.length > 1){
+    // Save per-item prices and sum total
+    let total = 0;
+    let anyEntered = false;
+    r.items.forEach((it,idx)=>{
+      const p = parseFloat(document.getElementById(`rq-item-price-${idx}`)?.value)||0;
+      it.quotedPrice = p;
+      total += p;
+      if(p>0) anyEntered = true;
+    });
+    if(!anyEntered){ toast('Enter at least one item price','error'); return; }
+    r.quotedPrice = total;
+  } else {
+    const price=parseFloat(document.getElementById('rq-price')?.value)||0;
+    if(price<=0){ toast('Enter the quoted price','error'); return; }
+    r.quotedPrice=price;
+    if(r.items && r.items[0]) r.items[0].quotedPrice = price;
+  }
   r.quotedLead=document.getElementById('rq-lead').value.trim();
   r.status='Quoted';
   renderRFQs();
@@ -8539,8 +8588,15 @@ function runEstimateAll(){
       matRFQ = (db.rfqs||[]).find(r=>r.kind!=='other' && (r.status==='Quoted'||r.status==='Accepted') &&
         ((r.grade||'').trim().toLowerCase()===gradeLower || (r.items||[]).some(it=>(it.grade||'').trim().toLowerCase()===gradeLower)));
       if(matRFQ && matRFQ.quotedPrice){
-        const rfqTotalMm = (matRFQ.items && matRFQ.items.length) ? matRFQ.items.reduce((a,it)=>a+(it.qtyMm||0),0) : (matRFQ.qtyMm || totalBarMm);
-        matCost = matRFQ.quotedPrice * (totalBarMm / rfqTotalMm);
+        // If this RFQ has per-item prices, use the matching item's price directly
+        const matchingItem = (matRFQ.items||[]).find(it=>(it.grade||'').trim().toLowerCase()===gradeLower);
+        if(matchingItem && matchingItem.quotedPrice){
+          const itemMm = matchingItem.qtyMm || totalBarMm;
+          matCost = matchingItem.quotedPrice * (totalBarMm / itemMm);
+        } else {
+          const rfqTotalMm = (matRFQ.items && matRFQ.items.length) ? matRFQ.items.reduce((a,it)=>a+(it.qtyMm||0),0) : (matRFQ.qtyMm || totalBarMm);
+          matCost = matRFQ.quotedPrice * (totalBarMm / rfqTotalMm);
+        }
         matCostKnown = true;
       }
     }
