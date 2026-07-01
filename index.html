@@ -892,7 +892,7 @@ tbody tr:hover td{background:var(--bg3)}
         <div class="ph">
           <div class="ph-left">
             <h2>Job Estimator</h2>
-            <p>Calculate bar requirements, material cost, machining cost and quote price</p>
+            <p>Build a multi-line quote for a customer — multiple parts, one quote</p>
           </div>
           <div class="ph-actions">
             <button onclick="clearEstimator()" class="ghost">↺ Clear</button>
@@ -902,86 +902,47 @@ tbody tr:hover td{background:var(--bg3)}
           </div>
         </div>
 
-        <div class="grid2" style="align-items:start">
-
-          <!-- LEFT: INPUTS -->
-          <div>
-            <!-- Part details -->
-            <div class="card" style="margin-bottom:12px">
-              <div class="card-header">1 — Customer &amp; part details</div>
-              <div class="card-body">
-                <div class="fg2">
-                  <div class="fg"><label>Customer</label>
-                    <select id="est-customer" onchange="runEstimate()">
-                      <option value="">— Select or add customer —</option>
-                    </select>
-                  </div>
-                  <div class="fg" style="display:flex;align-items:flex-end;gap:6px">
-                    <div style="flex:1"><label>Customer PO ref</label><input id="est-cust-po" placeholder="e.g. PO-12345" oninput="runEstimate()"/></div>
-                    <button class="ghost xs" style="color:var(--accent);white-space:nowrap;margin-bottom:1px" onclick="openEstimatorAddCustomer()">+ New</button>
-                  </div>
-                </div>
-                <div class="fg"><label>Part / job description</label><input id="est-part" placeholder="e.g. Turned Bush 40mm OD" oninput="runEstimate()"/></div>
-                <div class="fg2">
-                  <div class="fg"><label>Finished part length (mm)</label><input type="number" id="est-length" placeholder="e.g. 45" min="1" step="0.1" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Parting off allowance (mm)</label><input type="number" id="est-partoff" value="5" min="0" step="0.5" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Order quantity</label><input type="number" id="est-qty" placeholder="e.g. 50" min="1" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Spares / overmake qty</label><input type="number" id="est-spares" value="0" min="0" oninput="runEstimate()"/></div>
-                </div>
+        <!-- Quote header card -->
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-body">
+            <div class="fg2">
+              <div class="fg"><label>Customer</label>
+                <select id="est-customer" onchange="runEstimateAll()">
+                  <option value="">— Select or add customer —</option>
+                </select>
               </div>
-            </div>
-
-            <!-- Material -->
-            <div class="card" style="margin-bottom:12px">
-              <div class="card-header">2 — Material</div>
-              <div class="card-body">
-                <div class="fg"><label>Select from stock register <span style="color:var(--txt3);font-weight:400">(optional — fills grade, diameter &amp; cost automatically)</span></label>
-                  <select id="est-mat-sel" onchange="estimatorPickMaterial()">
-                    <option value="">— None / enter manually —</option>
-                  </select>
-                </div>
-                <div class="fg2">
-                  <div class="fg"><label>Material grade</label><input id="est-mat-grade" placeholder="e.g. 6082 T6 Aluminium" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Bar diameter / section (mm)</label><input type="number" id="est-bar-dia" placeholder="e.g. 44.45" min="1" step="0.001" oninput="runEstimate()"/></div>
-                </div>
-                <div id="est-mat-stock-note" style="display:none;font-size:11px;color:var(--green);margin-top:4px">✓ Using stock cost for material pricing</div>
-                <div id="est-mat-rfq-note" style="font-size:11px;color:var(--accent);margin-top:4px">ℹ No material cost entered — the estimator will show an RFQ button to request pricing from suppliers.</div>
-              </div>
-            </div>
-
-            <!-- Machining -->
-            <div class="card" style="margin-bottom:12px">
-              <div class="card-header">3 — Machining costs</div>
-              <div class="card-body">
-                <div class="fg2">
-                  <div class="fg"><label>Cycle time per part (mins)</label><input type="number" id="est-cycle" placeholder="e.g. 4.5" step="0.1" min="0" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Setup time (mins)</label><input type="number" id="est-setup" placeholder="e.g. 30" step="1" min="0" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Labour rate (£/hr)</label><input type="number" id="est-rate" step="0.5" min="0" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Secondary ops (deburr, clean etc.) mins/part</label><input type="number" id="est-secondary" value="0" step="0.5" min="0" oninput="runEstimate()"/></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Margin -->
-            <div class="card">
-              <div class="card-header">4 — Margin &amp; delivery</div>
-              <div class="card-body">
-                <div class="fg2">
-                  <div class="fg"><label>Profit margin (%)</label><input type="number" id="est-margin" value="30" min="0" max="200" step="1" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Delivery / carriage (£)</label><input type="number" id="est-delivery" value="0" step="0.5" min="0" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Other costs (tooling, subcontract etc.) £</label><input type="number" id="est-other" value="0" step="0.5" min="0" oninput="runEstimate()"/></div>
-                  <div class="fg"><label>Notes for customer</label><textarea id="est-notes" rows="2" placeholder="e.g. Price valid 30 days, material subject to surcharge…"></textarea></div>
-                </div>
+              <div class="fg" style="display:flex;align-items:flex-end;gap:6px">
+                <div style="flex:1"><label>Customer PO ref</label><input id="est-cust-po" placeholder="e.g. PO-12345" oninput="runEstimateAll()"/></div>
+                <button class="ghost xs" style="color:var(--accent);white-space:nowrap;margin-bottom:1px" onclick="openEstimatorAddCustomer()">+ New</button>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- RIGHT: RESULTS -->
-          <div id="est-results">
-            <div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px">
-              <div class="es-icon">£</div>
-              <p>Fill in the part details on the left to see your estimate</p>
+        <!-- Line items -->
+        <div id="est-lines"></div>
+        <div style="margin-bottom:12px">
+          <button class="ghost" onclick="addQuoteLine()">+ Add line item</button>
+        </div>
+
+        <!-- Footer card: margin, delivery, other, notes -->
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-header">Margin &amp; delivery</div>
+          <div class="card-body">
+            <div class="fg2">
+              <div class="fg"><label>Profit margin (%)</label><input type="number" id="est-margin" value="30" min="0" max="200" step="1" oninput="runEstimateAll()"/></div>
+              <div class="fg"><label>Delivery / carriage (£)</label><input type="number" id="est-delivery" value="0" step="0.5" min="0" oninput="runEstimateAll()"/></div>
+              <div class="fg"><label>Other costs (tooling, subcontract etc.) £</label><input type="number" id="est-other" value="0" step="0.5" min="0" oninput="runEstimateAll()"/></div>
+              <div class="fg"><label>Notes for customer</label><textarea id="est-notes" rows="2" placeholder="e.g. Price valid 30 days, material subject to surcharge…" oninput="runEstimateAll()"></textarea></div>
             </div>
+          </div>
+        </div>
+
+        <!-- Grand total results -->
+        <div id="est-results">
+          <div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px">
+            <div class="es-icon">£</div>
+            <p>Fill in the line items above to see your estimate</p>
           </div>
         </div>
 
@@ -7642,6 +7603,7 @@ let savedEstimates = [];
 let pendingQuoteConversion = null;
 let pendingRFQConversion = null;
 let lastEstimateResult = null;
+let estLines = [{}];
 
 function renderEstimator(){
   // Populate customer select
@@ -7649,40 +7611,121 @@ function renderEstimator(){
   if(custSel) custSel.innerHTML='<option value="">— Select or add customer —</option>'+
     db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
 
-  // Populate material select from stock
-  const sel = document.getElementById('est-mat-sel');
-  if(sel){
-    sel.innerHTML = '<option value="">— Choose from stock register —</option>' +
-      db.material.map(m=>`<option value="${m.ref}">${m.ref} — ${m.grade} · Ø${m.size} · £${m.cost||0}/bar</option>`).join('');
-  }
-  // Pre-fill labour rate from settings
-  const rateEl = document.getElementById('est-rate');
-  if(rateEl && !rateEl.value) rateEl.value = db.settings.rate || 45;
-
+  // Ensure at least one line
+  if(!estLines || !estLines.length) estLines=[{}];
+  renderQuoteLines();
   renderSavedEstimates();
-  runEstimate();
+  runEstimateAll();
+}
+
+function collectLineValues(){
+  estLines = estLines.map((_,i)=>({
+    part: document.getElementById(`ql-${i}-part`)?.value||'',
+    partLen: parseFloat(document.getElementById(`ql-${i}-length`)?.value)||0,
+    partOff: parseFloat(document.getElementById(`ql-${i}-partoff`)?.value)||5,
+    qty: parseInt(document.getElementById(`ql-${i}-qty`)?.value)||0,
+    spares: parseInt(document.getElementById(`ql-${i}-spares`)?.value)||0,
+    matRef: document.getElementById(`ql-${i}-matsel`)?.value||'',
+    matGrade: document.getElementById(`ql-${i}-grade`)?.value||'',
+    barDia: parseFloat(document.getElementById(`ql-${i}-dia`)?.value)||0,
+    cycleMin: parseFloat(document.getElementById(`ql-${i}-cycle`)?.value)||0,
+    setupMin: parseFloat(document.getElementById(`ql-${i}-setup`)?.value)||0,
+    rate: parseFloat(document.getElementById(`ql-${i}-rate`)?.value)||(db.settings.rate||45),
+    secMin: parseFloat(document.getElementById(`ql-${i}-secondary`)?.value)||0,
+  }));
+}
+
+function renderQuoteLines(){
+  const container = document.getElementById('est-lines');
+  if(!container) return;
+  const matOptions = '<option value="">— None / enter manually —</option>' +
+    (db.material||[]).map(m=>`<option value="${m.ref}">${m.ref} — ${m.grade} · Ø${m.size} · £${m.cost||0}/bar</option>`).join('');
+  const defaultRate = db.settings.rate||45;
+
+  container.innerHTML = estLines.map((ln, i) => {
+    const partLabel = (ln.part||'').trim() || 'Unnamed';
+    const removeBtn = estLines.length > 1
+      ? `<button class="ghost xs" style="color:var(--red);margin-left:auto" onclick="removeQuoteLine(${i})">× Remove</button>`
+      : '';
+    return `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header" style="display:flex;align-items:center;gap:8px">
+        <span>Line item ${i+1} — ${partLabel}</span>
+        ${removeBtn}
+      </div>
+      <div class="card-body">
+        <div class="fg2" style="align-items:start">
+          <!-- Left column -->
+          <div>
+            <div class="fg"><label>Part / job description</label><input id="ql-${i}-part" value="${(ln.part||'').replace(/"/g,'&quot;')}" placeholder="e.g. Turned Bush 40mm OD" oninput="runEstimateAll()"/></div>
+            <div class="fg2">
+              <div class="fg"><label>Finished part length (mm)</label><input type="number" id="ql-${i}-length" value="${ln.partLen||''}" placeholder="e.g. 45" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+              <div class="fg"><label>Parting off (mm)</label><input type="number" id="ql-${i}-partoff" value="${ln.partOff!==undefined?ln.partOff:5}" min="0" step="0.5" oninput="runEstimateAll()"/></div>
+            </div>
+            <div class="fg2">
+              <div class="fg"><label>Order qty</label><input type="number" id="ql-${i}-qty" value="${ln.qty||''}" placeholder="e.g. 50" min="1" oninput="runEstimateAll()"/></div>
+              <div class="fg"><label>Spares</label><input type="number" id="ql-${i}-spares" value="${ln.spares||0}" min="0" oninput="runEstimateAll()"/></div>
+            </div>
+            <div class="fg"><label>Material stock <span style="color:var(--txt3);font-weight:400">(optional)</span></label>
+              <select id="ql-${i}-matsel" onchange="estimatorPickMaterialLine(${i})">${matOptions.replace(`value="${ln.matRef||''}"`,`value="${ln.matRef||''}" selected`)}</select>
+            </div>
+            <div class="fg2">
+              <div class="fg"><label>Material grade</label><input id="ql-${i}-grade" value="${(ln.matGrade||'').replace(/"/g,'&quot;')}" placeholder="e.g. 6082 T6 Aluminium" oninput="runEstimateAll()"/></div>
+              <div class="fg"><label>Bar dia (mm)</label><input type="number" id="ql-${i}-dia" value="${ln.barDia||''}" placeholder="e.g. 44.45" min="1" step="0.001" oninput="runEstimateAll()"/></div>
+            </div>
+          </div>
+          <!-- Right column -->
+          <div>
+            <div class="fg"><label>Labour rate (£/hr)</label><input type="number" id="ql-${i}-rate" value="${ln.rate!==undefined?ln.rate:defaultRate}" step="0.5" min="0" oninput="runEstimateAll()"/></div>
+            <div class="fg"><label>Setup time (mins)</label><input type="number" id="ql-${i}-setup" value="${ln.setupMin||''}" placeholder="e.g. 30" step="1" min="0" oninput="runEstimateAll()"/></div>
+            <div class="fg"><label>Cycle time per part (mins)</label><input type="number" id="ql-${i}-cycle" value="${ln.cycleMin||''}" placeholder="e.g. 4.5" step="0.1" min="0" oninput="runEstimateAll()"/></div>
+            <div class="fg"><label>Secondary ops (mins/part)</label><input type="number" id="ql-${i}-secondary" value="${ln.secMin||0}" step="0.5" min="0" oninput="runEstimateAll()"/></div>
+          </div>
+        </div>
+        <div id="ql-${i}-mini" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:var(--r);font-size:12px;color:var(--txt3)">
+          Enter part length and quantity to see line summary
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Set matsel values (innerHTML doesn't support pre-selected well with dynamic generation)
+  estLines.forEach((ln, i)=>{
+    const sel = document.getElementById(`ql-${i}-matsel`);
+    if(sel && ln.matRef) sel.value = ln.matRef;
+  });
+}
+
+function addQuoteLine(){
+  collectLineValues();
+  estLines.push({partOff:5, spares:0, rate:db.settings.rate||45, secMin:0});
+  renderQuoteLines();
+  runEstimateAll();
+}
+
+function removeQuoteLine(i){
+  collectLineValues();
+  estLines.splice(i,1);
+  if(!estLines.length) estLines=[{}];
+  renderQuoteLines();
+  runEstimateAll();
+}
+
+function estimatorPickMaterialLine(i){
+  const ref = document.getElementById(`ql-${i}-matsel`)?.value;
+  if(!ref) return;
+  const mat = db.material.find(m=>m.ref===ref);
+  if(!mat) return;
+  const gradeEl = document.getElementById(`ql-${i}-grade`);
+  if(gradeEl) gradeEl.value = mat.grade;
+  const diaMatch = (mat.size||'').match(/(\d+\.?\d*)\s*mm/);
+  const diaEl = document.getElementById(`ql-${i}-dia`);
+  if(diaEl && diaMatch) diaEl.value = diaMatch[1];
+  runEstimateAll();
 }
 
 function estimatorPickMaterial(){
-  const ref = document.getElementById('est-mat-sel').value;
-  const stockNote = document.getElementById('est-mat-stock-note');
-  const rfqNote   = document.getElementById('est-mat-rfq-note');
-
-  if(!ref){
-    if(stockNote) stockNote.style.display='none';
-    if(rfqNote)   rfqNote.style.display='block';
-    return;
-  }
-  const mat = db.material.find(m=>m.ref===ref);
-  if(!mat) return;
-  document.getElementById('est-mat-grade').value = mat.grade;
-  // Extract diameter from size string e.g. "25mm dia × 3000mm" or "44.45"
-  const diaMatch = (mat.size||'').match(/(\d+\.?\d*)\s*mm/);
-  if(diaMatch) document.getElementById('est-bar-dia').value = diaMatch[1];
-  // Show stock cost note
-  if(stockNote) stockNote.style.display = mat.cost ? 'block' : 'none';
-  if(rfqNote)   rfqNote.style.display   = mat.cost ? 'none'  : 'block';
-  runEstimate();
+  // Legacy stub — material selection now handled per-line via estimatorPickMaterialLine()
 }
 
 // ── RFQ ──
@@ -7692,10 +7735,10 @@ function openRFQ(dataAttr){
   try {
     rfqData = typeof dataAttr === 'string' ? JSON.parse(dataAttr.replace(/&quot;/g,'"')) : dataAttr;
   } catch(e) {
-    // Try reading directly from current estimate state
-    const partDesc = document.getElementById('est-part')?.value||'';
-    const matGrade = document.getElementById('est-mat-grade')?.value||'';
-    const barDia   = parseFloat(document.getElementById('est-bar-dia')?.value)||0;
+    // Try reading directly from first line
+    const partDesc = document.getElementById('ql-0-part')?.value||'';
+    const matGrade = document.getElementById('ql-0-grade')?.value||'';
+    const barDia   = parseFloat(document.getElementById('ql-0-dia')?.value)||0;
     rfqData = { grade:matGrade, dia:barDia, partDesc, totalBarMm:0, barOrder:[], qty:0 };
   }
 
@@ -8296,272 +8339,217 @@ function printRFQ(){
 
 
 
-function runEstimate(){
-  const partLen   = parseFloat(document.getElementById('est-length').value)   || 0;
-  const partOff   = parseFloat(document.getElementById('est-partoff').value)  || 5;
-  const qty       = parseInt(document.getElementById('est-qty').value)         || 0;
-  const spares    = parseInt(document.getElementById('est-spares').value)      || 0;
-  const cycleMin  = parseFloat(document.getElementById('est-cycle').value)     || 0;
-  const setupMin  = parseFloat(document.getElementById('est-setup').value)     || 0;
-  const rate      = parseFloat(document.getElementById('est-rate').value)      || 45;
-  const secMin    = parseFloat(document.getElementById('est-secondary').value) || 0;
-  const margin    = parseFloat(document.getElementById('est-margin').value)    || 0;
-  const delivery  = parseFloat(document.getElementById('est-delivery').value)  || 0;
-  const other     = parseFloat(document.getElementById('est-other').value)     || 0;
-  const matGrade  = document.getElementById('est-mat-grade').value || '—';
-  const barDia    = parseFloat(document.getElementById('est-bar-dia').value) || 0;
-  const partDesc  = document.getElementById('est-part').value || 'Unnamed part';
-  const totalQty  = qty + spares;
+function runEstimate(){ runEstimateAll(); } // legacy alias
 
+function runEstimateAll(){
+  const margin   = parseFloat(document.getElementById('est-margin')?.value)||0;
+  const delivery = parseFloat(document.getElementById('est-delivery')?.value)||0;
+  const other    = parseFloat(document.getElementById('est-other')?.value)||0;
   const el = document.getElementById('est-results');
   if(!el) return;
 
-  if(!partLen || !qty){
-    el.innerHTML=`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px"><div class="es-icon">£</div><p>Enter part length and quantity to calculate</p></div>`;
+  const allLengths = [3000, 2000, 1000, 500];
+  function usable(len){ return len - 40; }
+
+  function calcBarOrder(totalQty, lengthPerPart){
+    if(!lengthPerPart || !totalQty) return [];
+    function partsFrom(len){ return Math.floor(usable(len)/lengthPerPart); }
+    const sortedDesc = [...allLengths].sort((a,b)=>b-a);
+    const sortedAsc  = [...allLengths].sort((a,b)=>a-b);
+    let barOrder = [];
+    let partsStillNeeded = totalQty;
+    let guard = 0;
+    while(partsStillNeeded > 0 && guard++ < 100){
+      let bestSingle = null;
+      for(const len of sortedAsc){
+        const pp = partsFrom(len);
+        if(pp >= partsStillNeeded){ bestSingle = {len, pp}; break; }
+      }
+      let bestMulti = null;
+      for(const len of sortedDesc){
+        const pp = partsFrom(len);
+        if(pp < 1) continue;
+        const fullBars = Math.floor(partsStillNeeded / pp);
+        if(fullBars > 0){ bestMulti = {len, pp, qty:fullBars}; break; }
+      }
+      if(bestSingle && (!bestMulti || bestSingle.len <= bestMulti.len * bestMulti.qty)){
+        const ex = barOrder.find(b=>b.len===bestSingle.len);
+        if(ex) ex.qty+=1; else barOrder.push({len:bestSingle.len, qty:1, pp:bestSingle.pp});
+        partsStillNeeded = 0;
+      } else if(bestMulti){
+        const ex = barOrder.find(b=>b.len===bestMulti.len);
+        if(ex) ex.qty+=bestMulti.qty; else barOrder.push({len:bestMulti.len, qty:bestMulti.qty, pp:bestMulti.pp});
+        partsStillNeeded -= bestMulti.qty * bestMulti.pp;
+      } else { break; }
+    }
+    return barOrder.filter(b=>b.qty>0);
+  }
+
+  const lineResults = [];
+  let anyLineReady = false;
+
+  for(let i=0; i<estLines.length; i++){
+    const partLen  = parseFloat(document.getElementById(`ql-${i}-length`)?.value)||0;
+    const partOff  = parseFloat(document.getElementById(`ql-${i}-partoff`)?.value)||5;
+    const qty      = parseInt(document.getElementById(`ql-${i}-qty`)?.value)||0;
+    const spares   = parseInt(document.getElementById(`ql-${i}-spares`)?.value)||0;
+    const cycleMin = parseFloat(document.getElementById(`ql-${i}-cycle`)?.value)||0;
+    const setupMin = parseFloat(document.getElementById(`ql-${i}-setup`)?.value)||0;
+    const rate     = parseFloat(document.getElementById(`ql-${i}-rate`)?.value)||(db.settings.rate||45);
+    const secMin   = parseFloat(document.getElementById(`ql-${i}-secondary`)?.value)||0;
+    const matGrade = document.getElementById(`ql-${i}-grade`)?.value||'';
+    const barDia   = parseFloat(document.getElementById(`ql-${i}-dia`)?.value)||0;
+    const partDesc = document.getElementById(`ql-${i}-part`)?.value||'Unnamed';
+    const matRef   = document.getElementById(`ql-${i}-matsel`)?.value||'';
+
+    const miniEl = document.getElementById(`ql-${i}-mini`);
+    if(!partLen || !qty){
+      if(miniEl) miniEl.innerHTML=`<span style="color:var(--txt3)">Enter part length and quantity to see line summary</span>`;
+      lineResults.push({ready:false, partDesc, qty, partLen});
+      continue;
+    }
+    anyLineReady = true;
+
+    const totalQty = qty + spares;
+    const lengthPerPart = partLen + partOff;
+    const barOrder = calcBarOrder(totalQty, lengthPerPart);
+    const totalBarMm = barOrder.reduce((a,b)=>a+b.qty*b.len, 0);
+    const totalUsableMm = barOrder.reduce((a,b)=>a+b.qty*usable(b.len), 0);
+    const totalWasteMm = Math.max(0, totalUsableMm - totalQty*lengthPerPart);
+    const totalBars = barOrder.reduce((a,b)=>a+b.qty, 0);
+    const barSummaryStr = barOrder.map(b=>`${b.qty}×${b.len}mm`).join(' + ')||'—';
+
+    // Material cost
+    const stockMat = matRef ? db.material.find(m=>m.ref===matRef) : null;
+    let matCost = 0;
+    let matCostKnown = false;
+    let matRFQ = null;
+    if(stockMat && stockMat.cost){
+      matCost = barOrder.reduce((a,b)=>a+b.qty*(stockMat.cost*(b.len/3000)), 0);
+      matCostKnown = true;
+    }
+    if(!matCostKnown && matGrade && matGrade.trim()){
+      const gradeLower = matGrade.trim().toLowerCase();
+      matRFQ = (db.rfqs||[]).find(r=>r.kind!=='other' && (r.status==='Quoted'||r.status==='Accepted') &&
+        ((r.grade||'').trim().toLowerCase()===gradeLower || (r.items||[]).some(it=>(it.grade||'').trim().toLowerCase()===gradeLower)));
+      if(matRFQ && matRFQ.quotedPrice){
+        const rfqTotalMm = (matRFQ.items && matRFQ.items.length) ? matRFQ.items.reduce((a,it)=>a+(it.qtyMm||0),0) : (matRFQ.qtyMm || totalBarMm);
+        matCost = matRFQ.quotedPrice * (totalBarMm / rfqTotalMm);
+        matCostKnown = true;
+      }
+    }
+
+    const setupCost = (setupMin/60)*rate;
+    const runCost   = ((cycleMin+secMin)/60)*rate*totalQty;
+    const machiningCost = setupCost + runCost;
+    const lineCostBeforeMargin = matCost + machiningCost;
+
+    // Update mini summary
+    let rfqBtns = '';
+    if(!matCostKnown && matGrade && matGrade.trim()){
+      const rfqPayload = JSON.stringify({grade:matGrade, dia:barDia, barOrder:barOrder.map(b=>({len:b.len,qty:b.qty})), totalBarMm, qty:totalQty, partDesc}).replace(/"/g,'&quot;');
+      rfqBtns = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button onclick="openRFQ(${rfqPayload})" style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">Create RFQ</button>
+        <button onclick="addToDraftRFQ(${rfqPayload})" style="cursor:pointer;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">+ Add to draft RFQ</button>
+      </div>`;
+    }
+    if(miniEl) miniEl.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:6px">
+        <span>Bar: <strong>${barSummaryStr}</strong> (${(totalBarMm/1000).toFixed(2)}m)</span>
+        <span>Material: <strong style="color:${matCostKnown?'var(--green)':'var(--amber)'}">${matCostKnown?'£'+matCost.toFixed(2):'TBD'}</strong></span>
+        <span>Machining: <strong>£${machiningCost.toFixed(2)}</strong></span>
+        <span>Line subtotal (ex margin): <strong>£${lineCostBeforeMargin.toFixed(2)}</strong></span>
+      </div>${rfqBtns}`;
+
+    lineResults.push({
+      ready:true, i, partDesc, qty, spares, totalQty, partLen, partOff, barDia,
+      barOrder, barSummaryStr, totalBarMm, totalBars,
+      matGrade, matCost, matCostKnown, matRef, machiningCost, setupCost, runCost,
+      lineCostBeforeMargin, cycleMin, setupMin, secMin, rate, matRFQ,
+    });
+  }
+
+  if(!anyLineReady){
+    el.innerHTML=`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px"><div class="es-icon">£</div><p>Enter part length and quantity on at least one line to calculate</p></div>`;
+    lastEstimateResult = null;
     return;
   }
 
-  // ── BAR CALCULATION ──
-  // Always consider all 4 standard lengths; find minimum-waste combination
-  const allLengths = [3000, 2000, 1000, 500];
-  const lengthPerPart = partLen + partOff;
-  function usable(len){ return len - 40; }
-  function partsFrom(len){ return lengthPerPart > 0 ? Math.floor(usable(len)/lengthPerPart) : 0; }
-
-  // Minimum-waste combination: at each step, prefer a single bar that finishes the
-  // remaining demand outright over several full bars of a smaller length, whenever
-  // that single bar uses no more material (e.g. 1×1000mm beats 2×500mm — same mm,
-  // fewer bars/less kerf loss).
-  const sortedDesc = [...allLengths].sort((a,b)=>b-a);
-  const sortedAsc  = [...allLengths].sort((a,b)=>a-b);
-  let barOrder = [];
-  let partsStillNeeded = totalQty;
-  let guard = 0;
-
-  while(partsStillNeeded > 0 && guard++ < 100){
-    let bestSingle = null;
-    for(const len of sortedAsc){
-      const pp = partsFrom(len);
-      if(pp >= partsStillNeeded){ bestSingle = {len, pp}; break; }
-    }
-    let bestMulti = null;
-    for(const len of sortedDesc){
-      const pp = partsFrom(len);
-      if(pp < 1) continue;
-      const fullBars = Math.floor(partsStillNeeded / pp);
-      if(fullBars > 0){ bestMulti = {len, pp, qty:fullBars}; break; }
-    }
-    if(bestSingle && (!bestMulti || bestSingle.len <= bestMulti.len * bestMulti.qty)){
-      const ex = barOrder.find(b=>b.len===bestSingle.len);
-      if(ex) ex.qty+=1; else barOrder.push({len:bestSingle.len, qty:1, pp:bestSingle.pp});
-      partsStillNeeded = 0;
-    } else if(bestMulti){
-      const ex = barOrder.find(b=>b.len===bestMulti.len);
-      if(ex) ex.qty+=bestMulti.qty; else barOrder.push({len:bestMulti.len, qty:bestMulti.qty, pp:bestMulti.pp});
-      partsStillNeeded -= bestMulti.qty * bestMulti.pp;
-    } else {
-      break; // no standard length can cut even one part — leave as a shortfall, surfaced below
-    }
-  }
-  barOrder = barOrder.filter(b=>b.qty>0);
-
-  // Total raw mm needed (sum of bar lengths ordered)
-  const totalBarMm     = barOrder.reduce((a,b)=>a+b.qty*b.len, 0);
-  const totalUsableMm  = barOrder.reduce((a,b)=>a+b.qty*usable(b.len), 0);
-  const totalMatMm     = totalQty * lengthPerPart;
-  const totalWasteMm   = Math.max(0, totalUsableMm - totalMatMm);
-  const totalBars      = barOrder.reduce((a,b)=>a+b.qty, 0);
-  const barSummaryStr  = barOrder.map(b=>`${b.qty}×${b.len}mm`).join(' + ');
-
-  // Material cost — only if picked from stock register
-  const stockRef = document.getElementById('est-mat-sel')?.value;
-  const stockMat = stockRef ? db.material.find(m=>m.ref===stockRef) : null;
-  let matCost = 0;
-  let matCostKnown = false;
-  if(stockMat && stockMat.cost){
-    // Estimate cost proportionally based on total bar mm vs standard 3000mm bar cost
-    const costPer3m = stockMat.cost;
-    matCost = barOrder.reduce((a,b)=>{
-      const costThisLen = costPer3m * (b.len / 3000);
-      return a + b.qty * costThisLen;
-    }, 0);
-    matCostKnown = true;
-  }
-
-  // No stock cost — fall back to a quoted (or accepted) RFQ for this grade, if one
-  // exists. This does NOT commit to the order — it just lets the quote reflect a
-  // real supplier price instead of staying "TBD" until the job is won.
-  let matRFQ = null;
-  if(!matCostKnown && matGrade && matGrade.trim() && matGrade.trim()!=='—'){
-    const gradeLower = matGrade.trim().toLowerCase();
-    matRFQ = (db.rfqs||[]).find(r=>r.kind!=='other' && (r.status==='Quoted'||r.status==='Accepted') &&
-      ((r.grade||'').trim().toLowerCase()===gradeLower || (r.items||[]).some(it=>(it.grade||'').trim().toLowerCase()===gradeLower)));
-    if(matRFQ && matRFQ.quotedPrice){
-      // Quoted price is for the whole RFQ order (all line items combined, if a multi-item
-      // draft RFQ) — scale to this job's bar mm share of the total RFQ mm.
-      const rfqTotalMm = (matRFQ.items && matRFQ.items.length) ? matRFQ.items.reduce((a,it)=>a+(it.qtyMm||0),0) : (matRFQ.qtyMm || totalBarMm);
-      matCost = matRFQ.quotedPrice * (totalBarMm / rfqTotalMm);
-      matCostKnown = true;
-    }
-  }
-
-  // ── COST CALCULATION ──
-  // matCost already calculated above from barOrder
-  const setupCost     = (setupMin / 60) * rate;
-  const runCost       = ((cycleMin + secMin) / 60) * rate * totalQty;
-  const labourCost    = setupCost + runCost;
-  const costBeforeMargin = matCost + labourCost + other + delivery;
-  const marginAmt     = costBeforeMargin * (margin / 100);
-  const totalQuote    = costBeforeMargin + marginAmt;
-  const unitPrice     = qty > 0 ? totalQuote / qty : 0;
-  const costPerPart   = qty > 0 ? costBeforeMargin / qty : 0;
-
-  // Colour coding
+  const readyLines = lineResults.filter(r=>r.ready);
+  const totalCostBeforeMargin = readyLines.reduce((a,r)=>a+r.lineCostBeforeMargin, 0);
+  const grandCostBase = totalCostBeforeMargin + other + delivery;
+  const marginAmt = grandCostBase * margin / 100;
+  const totalQuote = grandCostBase + marginAmt;
+  const totalQtyAll = readyLines.reduce((a,r)=>a+r.qty, 0);
+  const anyMatTBD = readyLines.some(r=>!r.matCostKnown);
   const c = (v) => `£${v.toFixed(2)}`;
-  const pct = (v, total) => total>0 ? ` (${Math.round(v/total*100)}%)` : '';
 
   el.innerHTML = `
     <div style="position:sticky;top:0">
-
-      <!-- QUOTE HEADLINE -->
       <div style="background:linear-gradient(135deg,#071a3a,#0a1f2e);border:2px solid var(--accent);border-radius:var(--r3);padding:20px 22px;margin-bottom:12px;box-shadow:0 0 24px var(--accent-dim)">
-        <div style="font-size:10px;font-family:var(--mono);color:var(--accent);letter-spacing:.12em;margin-bottom:6px">ESTIMATE — ${partDesc.toUpperCase()}</div>
+        <div style="font-size:10px;font-family:var(--mono);color:var(--accent);letter-spacing:.12em;margin-bottom:6px">QUOTE SUMMARY — ${readyLines.length} LINE${readyLines.length!==1?'S':''}</div>
         <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
           <div>
-            <div style="font-size:11px;color:var(--txt3);margin-bottom:2px">Total quote (${qty} off)</div>
-            <div style="font-size:40px;font-weight:200;font-family:var(--mono);color:var(--accent);letter-spacing:-.02em">${c(totalQuote)}</div>
+            <div style="font-size:11px;color:var(--txt3);margin-bottom:2px">Total quote${anyMatTBD?' (material TBD on some lines)':''}</div>
+            <div style="font-size:40px;font-weight:200;font-family:var(--mono);color:var(--accent);letter-spacing:-.02em">${c(totalQuote)}${anyMatTBD?'<span style="font-size:14px;color:var(--amber)"> + mat</span>':''}</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:11px;color:var(--txt3);margin-bottom:2px">Unit price</div>
-            <div style="font-size:28px;font-weight:300;font-family:var(--mono);color:var(--green)">${c(unitPrice)}</div>
-            <div style="font-size:10px;color:var(--txt3);margin-top:2px">Cost/part: ${c(costPerPart)} · Margin: ${margin}%</div>
+            <div style="font-size:11px;color:var(--txt3);margin-bottom:2px">Margin</div>
+            <div style="font-size:22px;font-weight:300;font-family:var(--mono);color:var(--green)">${c(marginAmt)}</div>
+            <div style="font-size:10px;color:var(--txt3);margin-top:2px">${margin}% of base cost</div>
           </div>
         </div>
       </div>
-
-      <!-- BAR CALCULATION -->
       <div class="card" style="margin-bottom:10px">
-        <div class="card-header">Bar stock requirement</div>
+        <div class="card-header">Line item breakdown</div>
         <div class="card-body" style="padding:14px">
-
-          <!-- KEY METRICS -->
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
-            <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
-              <div style="font-size:10px;color:var(--txt3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:3px">LENGTH PER PART</div>
-              <div style="font-size:20px;font-weight:600;font-family:var(--mono)">${lengthPerPart.toFixed(1)}<span style="font-size:12px;color:var(--txt3)">mm</span></div>
-              <div style="font-size:10px;color:var(--txt3);margin-top:2px">${partLen}mm + ${partOff}mm parting</div>
-            </div>
-            <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
-              <div style="font-size:10px;color:var(--txt3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:3px">TOTAL BAR NEEDED</div>
-              <div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--accent)">${(totalBarMm/1000).toFixed(2)}<span style="font-size:12px;color:var(--txt3)">m</span></div>
-              <div style="font-size:10px;color:var(--txt3);margin-top:2px">${totalBarMm}mm inc. workholding</div>
-            </div>
-            <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
-              <div style="font-size:10px;color:var(--txt3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:3px">WASTE / OFFCUT</div>
-              <div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--amber)">${(totalWasteMm).toFixed(0)}<span style="font-size:12px;color:var(--txt3)">mm</span></div>
-              <div style="font-size:10px;color:var(--txt3);margin-top:2px">${totalQty > 0 ? Math.round(totalWasteMm/totalQty)+'mm avg/part' : ''}</div>
-            </div>
-          </div>
-
-          <!-- BAR LAYOUT VISUAL -->
-          ${barOrder[0]?`<div style="margin-bottom:12px">
-            <div style="font-size:10px;color:var(--txt3);font-family:var(--mono);margin-bottom:5px">LAYOUT — ${barOrder[0].len}mm bar · ${barOrder[0].pp} parts · usable ${usable(barOrder[0].len)}mm</div>
-            <div style="display:flex;height:26px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border3)">
-              ${Array.from({length:barOrder[0].pp}).map((_,i)=>`<div style="flex:${lengthPerPart};background:${i%2===0?'var(--accent)':'var(--accent2)'};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;overflow:hidden">${lengthPerPart>=50?lengthPerPart.toFixed(0):''}}</div>`).join('')}
-              ${usable(barOrder[0].len)-(barOrder[0].pp*lengthPerPart)>0?`<div style="flex:${usable(barOrder[0].len)-(barOrder[0].pp*lengthPerPart)};background:var(--bg5);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--txt3)"></div>`:''}
-              <div style="flex:${Math.floor(barOrder[0].len/1000)*40};background:var(--amber-dim);border-left:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--amber)"></div>
-            </div>
-          </div>`:''}
-
-          <!-- OPTIMAL BAR MIX -->
-          <div style="background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--r2);padding:12px 14px;margin-bottom:12px">
-            <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">Optimal bar order — ${matGrade||'specify material grade'}</div>
-            ${barOrder.map(b=>`
-              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg4);border-radius:var(--r);margin-bottom:5px">
-                <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent);min-width:32px">${b.qty}×</span>
-                <div style="flex:1">
-                  <strong>${b.len}mm</strong>
-                  <span style="color:var(--txt3);font-size:11px;margin-left:8px">${b.pp} parts · usable ${usable(b.len)}mm · 40mm chuck</span>
-                </div>
-                <span style="font-family:var(--mono);font-size:11px;color:${matCostKnown?'var(--green)':'var(--txt3)'}">
-                  ${matCostKnown?(stockMat?'£'+((stockMat.cost*(b.len/3000))*b.qty).toFixed(2):'~£'+(matCost*(b.qty*b.len/totalBarMm)).toFixed(2)):'cost TBD'}
-                </span>
-              </div>`).join('')}
-            <div style="font-size:11px;color:var(--txt3);margin-top:6px;padding-top:6px;border-top:1px solid var(--accent)">
-              ${totalBars} bar${totalBars!==1?'s':''} total · ${totalBarMm}mm · ${(totalWasteMm).toFixed(0)}mm waste
-            </div>
-          </div>
-
-          <!-- RFQ / COST NOTE -->
-          ${matCostKnown?
-            (stockMat?
-              `<div class="alert al-ok" style="font-size:11.5px">✓ Material cost calculated from stock (£${matCost.toFixed(2)}) — included in quote below</div>`:
-              `<div class="alert al-ok" style="font-size:11.5px">✓ Material cost (£${matCost.toFixed(2)}) from ${matRFQ.status==='Accepted'?'accepted':'quoted'} RFQ ${matRFQ.id} (${matRFQ.supName||'supplier'}) — included in quote below. Material isn't ordered until ${matRFQ.id} is accepted.</div>`
-            ):
-            (matGrade && matGrade.trim() && matGrade.trim()!=='—')?
-            `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--r2)">
-              <div style="flex:1;font-size:12px;color:var(--amber)">⚠ No material cost — not included in quote. Send an RFQ to your supplier to get pricing.</div>
-              <button onclick="openRFQ(${JSON.stringify({grade:matGrade,dia:barDia,barOrder:barOrder.map(b=>({len:b.len,qty:b.qty})),totalBarMm,qty:totalQty,partDesc}).replace(/"/g,'&quot;')})"
-                style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:8px 16px;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
-                Create RFQ
-              </button>
-              <button onclick="addToDraftRFQ(${JSON.stringify({grade:matGrade,dia:barDia,barOrder:barOrder.map(b=>({len:b.len,qty:b.qty})),totalBarMm,qty:totalQty,partDesc}).replace(/"/g,'&quot;')})"
-                data-tip="Add this material need as a line item to a shared draft RFQ for one supplier, alongside other jobs"
-                style="cursor:pointer;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:var(--r);padding:8px 16px;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
-                + Add to draft RFQ
-              </button>
-            </div>`:
-            `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg4);border:1px dashed var(--border3);border-radius:var(--r2)">
-              <div style="flex:1;font-size:12px;color:var(--txt3)">ℹ Enter a material grade above to calculate cost or raise an RFQ</div>
-            </div>`}
+          <table style="width:100%;font-size:12px;border-collapse:collapse">
+            <thead><tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;padding:4px 6px;color:var(--txt3)">Part</th>
+              <th style="text-align:right;padding:4px 6px;color:var(--txt3)">Qty</th>
+              <th style="text-align:right;padding:4px 6px;color:var(--txt3)">Material</th>
+              <th style="text-align:right;padding:4px 6px;color:var(--txt3)">Machining</th>
+              <th style="text-align:right;padding:4px 6px;color:var(--txt3)">Subtotal</th>
+            </tr></thead>
+            <tbody>
+              ${readyLines.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px">${r.partDesc}</td>
+                <td style="text-align:right;padding:6px;font-family:var(--mono)">${r.qty}${r.spares>0?`+${r.spares}sp`:''}</td>
+                <td style="text-align:right;padding:6px;font-family:var(--mono);color:${r.matCostKnown?'var(--green)':'var(--amber)'}">${r.matCostKnown?c(r.matCost):'TBD'}</td>
+                <td style="text-align:right;padding:6px;font-family:var(--mono)">${c(r.machiningCost)}</td>
+                <td style="text-align:right;padding:6px;font-family:var(--mono);font-weight:600">${c(r.lineCostBeforeMargin)}</td>
+              </tr>`).join('')}
+            </tbody>
+            <tfoot>
+              ${other>0?`<tr><td colspan="4" style="padding:6px;color:var(--txt3)">Other costs</td><td style="text-align:right;padding:6px;font-family:var(--mono)">${c(other)}</td></tr>`:''}
+              ${delivery>0?`<tr><td colspan="4" style="padding:6px;color:var(--txt3)">Delivery</td><td style="text-align:right;padding:6px;font-family:var(--mono)">${c(delivery)}</td></tr>`:''}
+              <tr style="border-top:1px solid var(--border)">
+                <td colspan="4" style="padding:6px;color:var(--txt3)">Base cost</td>
+                <td style="text-align:right;padding:6px;font-family:var(--mono);font-weight:600">${c(grandCostBase)}${anyMatTBD?'<span style="font-size:10px;color:var(--amber)">+mat</span>':''}</td>
+              </tr>
+              <tr>
+                <td colspan="4" style="padding:6px;color:var(--txt3)">Margin (${margin}%)</td>
+                <td style="text-align:right;padding:6px;font-family:var(--mono);font-weight:600;color:var(--green)">${c(marginAmt)}</td>
+              </tr>
+              <tr style="background:var(--bg3)">
+                <td colspan="4" style="padding:8px 6px;font-weight:700">TOTAL QUOTE</td>
+                <td style="text-align:right;padding:8px 6px;font-family:var(--mono);font-weight:700;font-size:15px;color:var(--accent)">${c(totalQuote)}${anyMatTBD?'<span style="font-size:10px;color:var(--amber)">+mat</span>':''}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
-
-      <!-- COST BREAKDOWN -->
-      <div class="card" style="margin-bottom:10px">
-        <div class="card-header">Cost breakdown</div>
-        <div class="card-body" style="padding:14px">
-          <div style="font-size:12.5px">
-            ${[
-              matCostKnown?['Material ('+barSummaryStr+')', matCost]:['Material','—'],
-              ['Setup ('+setupMin+' mins @ £'+rate+'/hr)', setupCost],
-              ['Machining ('+cycleMin+'+'+secMin+' mins × '+totalQty+' parts)', runCost],
-              other>0?['Other costs', other]:null,
-              delivery>0?['Delivery / carriage', delivery]:null,
-            ].filter(Boolean).map(([label, val])=>`
-              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
-                <span style="color:var(--txt2)">${label}</span>
-                <span style="font-family:var(--mono);font-weight:500">${typeof val==='string'?'<span style="color:var(--txt3)">'+val+'</span>':c(val)+pct(val,costBeforeMargin)}</span>
-              </div>`).join('')}
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-              <span style="color:var(--txt3)">Total cost${!matCostKnown?' (excl. material)':''}</span>
-              <span style="font-family:var(--mono);font-weight:600">${c(costBeforeMargin)}${!matCostKnown?' <span style="font-size:10px;color:var(--amber)">+ material TBD</span>':''}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-              <span style="color:var(--txt3)">Margin (${margin}%)</span>
-              <span style="font-family:var(--mono);font-weight:600;color:var(--green)">${c(marginAmt)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-top:6px">
-              <span style="font-weight:600;font-size:13px">TOTAL QUOTE (${qty} off)</span>
-              <span style="font-family:var(--mono);font-weight:700;font-size:16px;color:var(--accent)">${c(totalQuote)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px">
-              <span style="color:var(--txt3)">Unit price (order qty only)</span>
-              <span style="font-family:var(--mono);font-weight:700;color:var(--green);font-size:14px">${c(unitPrice)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>`;
 
-  // Store the latest calculated result so "Create WO" can use it directly
   lastEstimateResult = {
-    part:partDesc, qty, spares, matGrade, barDia, totalQuote, unitPrice, totalBars,
-    machiningMinsPerPart: cycleMin + secMin,
-    matCost, matCostKnown,
+    lines: lineResults,
+    totalQuote, marginAmt, grandCostBase, anyMatTBD,
+    margin, delivery, other,
     custCode: document.getElementById('est-customer')?.value||'',
     custPO: document.getElementById('est-cust-po')?.value||'',
+    // For single-line compat
+    part: readyLines.map(r=>r.partDesc).join(', '),
+    qty: totalQtyAll,
   };
 }
 
@@ -8598,146 +8586,95 @@ function saveEstimatorCustomer(){
 }
 
 function createWOFromEstimate(){
-  const part=document.getElementById('est-part').value.trim();
-  const qty=parseInt(document.getElementById('est-qty').value)||0;
-  if(!part||!qty){toast('Enter part description and quantity before creating WO','error');return;}
   if(!lastEstimateResult){toast('Calculate the estimate first','error');return;}
+  const r=lastEstimateResult;
+  const readyLines=(r.lines||[]).filter(l=>l.ready);
+  if(!readyLines.length){toast('Enter at least one complete line item before creating WO','error');return;}
 
+  if(readyLines.length>1){
+    toast('Multi-line quote: use the "→ WO" button on an accepted line in Quote History to create individual work orders','info');
+    return;
+  }
+
+  // Single line — pre-fill as before
+  const ln=readyLines[0];
   navigate('orders');
   openNewWOModal();
 
-  const r=lastEstimateResult;
-
-  document.getElementById('o-part').value=r.part;
-  document.getElementById('o-qty').value=r.qty;
+  document.getElementById('o-part').value=ln.partDesc;
+  document.getElementById('o-qty').value=ln.qty;
   document.getElementById('o-quoted').value=r.totalQuote.toFixed(2);
   if(r.custPO) document.getElementById('o-custpo').value=r.custPO;
 
   const custSel=document.getElementById('o-cust');
   if(custSel && r.custCode) custSel.value=r.custCode;
 
-  // Match the estimate's material grade/diameter to an in-stock material record
-  if(r.matGrade && r.matGrade!=='—'){
-    const gradeLower=r.matGrade.toLowerCase();
+  if(ln.matGrade){
+    const gradeLower=ln.matGrade.toLowerCase();
     const match=db.material.find(m=>
-      m.grade.toLowerCase().includes(gradeLower) || gradeLower.includes(m.grade.toLowerCase())
-    ) || db.material.find(m=>
-      r.barDia && m.size.includes(r.barDia+'mm')
-    );
-
+      m.grade.toLowerCase().includes(gradeLower)||gradeLower.includes(m.grade.toLowerCase())
+    )||db.material.find(m=>ln.barDia&&m.size.includes(ln.barDia+'mm'));
     if(match){
       document.getElementById('o-mat-type').value=match.type;
       filterWOMaterialStock();
       document.getElementById('o-mat').value=match.ref;
       fillWOMatDetails();
-      if(r.totalBars) document.getElementById('o-matqty').value=r.totalBars;
+      if(ln.totalBars) document.getElementById('o-matqty').value=ln.totalBars;
     } else {
-      document.getElementById('o-mat-desc').value=r.matGrade+(r.barDia?` · Ø${r.barDia}mm`:'');
+      document.getElementById('o-mat-desc').value=ln.matGrade+(ln.barDia?` · Ø${ln.barDia}mm`:'');
       const infoEl=document.getElementById('o-mat-stock-info');
-      if(infoEl) infoEl.innerHTML=`<div style="padding:8px 10px;background:var(--amber-dim);border-radius:var(--r);border-left:3px solid var(--amber);color:var(--amber)">⚠ No matching stock found for "${r.matGrade}" — check material register or raise an RFQ/PO before starting this job.</div>`;
+      if(infoEl) infoEl.innerHTML=`<div style="padding:8px 10px;background:var(--amber-dim);border-radius:var(--r);border-left:3px solid var(--amber);color:var(--amber)">⚠ No matching stock found for "${ln.matGrade}"</div>`;
     }
   }
 
-  // Default due date 4 weeks out
   const dueEl=document.getElementById('o-due');
   if(dueEl){const d=new Date();d.setDate(d.getDate()+28);dueEl.value=d.toISOString().split('T')[0];}
-
   toast('WO form pre-filled from estimate — review and confirm','info');
 }
 
 function clearEstimator(){
-  ['est-part','est-length','est-qty','est-cycle','est-setup','est-notes','est-mat-grade','est-bar-dia','est-cust-po'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value='';
-  });
+  estLines=[{}];
+  renderQuoteLines();
   const custSel=document.getElementById('est-customer');
   if(custSel) custSel.value='';
-  document.getElementById('est-partoff').value='5';
-  document.getElementById('est-spares').value='0';
-  document.getElementById('est-secondary').value='0';
+  ['est-cust-po','est-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('est-margin').value='30';
   document.getElementById('est-delivery').value='0';
   document.getElementById('est-other').value='0';
-  document.getElementById('est-rate').value=db.settings.rate||45;
-  document.getElementById('est-mat-sel').value='';
-  document.getElementById('est-results').innerHTML=`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px"><div class="es-icon">£</div><p>Fill in the part details on the left to see your estimate</p></div>`;
+  document.getElementById('est-results').innerHTML=`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px"><div class="es-icon">£</div><p>Fill in the line items above to see your estimate</p></div>`;
+  lastEstimateResult=null;
 }
 
 function saveEstimate(){
-  const partDesc = document.getElementById('est-part').value||'Unnamed';
-  const qty = parseInt(document.getElementById('est-qty').value)||0;
-  const partLen = parseFloat(document.getElementById('est-length').value)||0;
-  const partOff = parseFloat(document.getElementById('est-partoff').value)||5;
-  const spares = parseInt(document.getElementById('est-spares').value)||0;
-  const matGrade = document.getElementById('est-mat-grade').value||'';
-  const cycleMin = parseFloat(document.getElementById('est-cycle').value)||0;
-  const setupMin = parseFloat(document.getElementById('est-setup').value)||0;
-  const rate = parseFloat(document.getElementById('est-rate').value)||45;
-  const secMin = parseFloat(document.getElementById('est-secondary').value)||0;
-  const margin = parseFloat(document.getElementById('est-margin').value)||0;
-  const delivery = parseFloat(document.getElementById('est-delivery').value)||0;
-  const other = parseFloat(document.getElementById('est-other').value)||0;
-  const notes = document.getElementById('est-notes').value;
-
-  if(!partDesc||!qty||!partLen){ toast('Enter at least part description, length and qty','error'); return; }
-
-  const barDia = parseFloat(document.getElementById('est-bar-dia')?.value)||0;
-  const totalQty = qty+spares;
-  const lengthPerPart = partLen+partOff;
-
-  // Use same algorithm as runEstimate
-  function usableS(len){ return len - 40; }
-  const sortedDesc=[3000,2000,1000,500];
-  const sortedAsc=[500,1000,2000,3000];
-  let barOrderS=[],partsLeft=totalQty;
-  for(const len of sortedDesc){
-    if(partsLeft<=0)break;
-    const pp=Math.floor(usableS(len)/lengthPerPart);
-    if(pp<1)continue;
-    const full=Math.floor(partsLeft/pp);
-    if(full>0){barOrderS.push({len,qty:full,pp});partsLeft-=full*pp;}
-  }
-  if(partsLeft>0){
-    for(const len of sortedAsc){const pp=Math.floor(usableS(len)/lengthPerPart);if(pp>=partsLeft){const ex=barOrderS.find(b=>b.len===len);if(ex)ex.qty+=1;else barOrderS.push({len,qty:1,pp});partsLeft=0;break;}}
-    if(partsLeft>0){const big=sortedDesc.find(l=>Math.floor(usableS(l)/lengthPerPart)>=1)||3000;const pp=Math.floor(usableS(big)/lengthPerPart)||1;const need=Math.ceil(partsLeft/pp);const ex=barOrderS.find(b=>b.len===big);if(ex)ex.qty+=need;else barOrderS.push({len:big,qty:need,pp});}
-  }
-  barOrderS=barOrderS.filter(b=>b.qty>0);
-  const totalBarMmS=barOrderS.reduce((a,b)=>a+b.qty*b.len,0);
-  const barSummary=barOrderS.map(b=>b.qty+'×'+b.len+'mm').join(' + ')||'—';
-  const totalBarsCalc=barOrderS.reduce((a,b)=>a+b.qty,0);
-
-  // Material cost — only from stock if selected
-  const stockRef2=document.getElementById('est-mat-sel')?.value;
-  const stockMat2=stockRef2?db.material.find(m=>m.ref===stockRef2):null;
-  const matCostCalc=stockMat2&&stockMat2.cost?barOrderS.reduce((a,b)=>a+b.qty*(stockMat2.cost*(b.len/3000)),0):0;
-
-  const setupCost=(setupMin/60)*rate;
-  const runCost=((cycleMin+secMin)/60)*rate*totalQty;
-  const labourCost=setupCost+runCost;
-  const base=matCostCalc+labourCost+other+delivery;
-  const totalQuote=base*(1+margin/100);
-  const unitPrice=qty>0?totalQuote/qty:0;
+  if(!lastEstimateResult){toast('Calculate the estimate first','error');return;}
+  const readyLines=(lastEstimateResult.lines||[]).filter(l=>l.ready);
+  if(!readyLines.length){toast('Enter at least part description, length and qty on one line','error');return;}
 
   if(!savedEstimates) savedEstimates=[];
-  const custEl2=document.getElementById('est-customer');
+  const custEl=document.getElementById('est-customer');
+  const margin=parseFloat(document.getElementById('est-margin')?.value)||0;
+  const delivery=parseFloat(document.getElementById('est-delivery')?.value)||0;
+  const other=parseFloat(document.getElementById('est-other')?.value)||0;
+  const notes=document.getElementById('est-notes')?.value||'';
+  const totalQuote=lastEstimateResult.totalQuote;
+  const unitPrice=readyLines.length===1&&readyLines[0].qty>0?totalQuote/readyLines[0].qty:totalQuote/Math.max(1,(lastEstimateResult.qty||1));
+
   savedEstimates.unshift({
     id:'EST-'+Date.now(),
     date:todayISO(),
-    part:partDesc,
-    custCode: custEl2?.value||'',
-    custName: custEl2?.options[custEl2.selectedIndex]?.text||'',
-    custPO: document.getElementById('est-cust-po')?.value||'',
-    qty,spares,partLen,partOff,barDia,
-    barOrder:barOrderS,
-    barSummary,
-    totalBars:totalBarsCalc,
-    totalBarMm:totalBarMmS,
-    matGrade,
-    cycleMin,setupMin,rate,secMin,margin,delivery,other,notes,
+    part:readyLines.map(r=>r.partDesc).join(', '),
+    custCode:custEl?.value||'',
+    custName:custEl?.options[custEl.selectedIndex]?.text||'',
+    custPO:document.getElementById('est-cust-po')?.value||'',
+    lines:readyLines,
+    margin,delivery,other,notes,
     totalQuote,unitPrice,
     savedBy:curUser.name,
     status:'Draft',
     statusHistory:[{status:'Draft',by:curUser.name,date:todayISO()}],
     convertedWO:'',
+    qty:lastEstimateResult.qty||0,
+    spares:0,
   });
   renderSavedEstimates();
   toast('Estimate saved','success');
@@ -8819,108 +8756,155 @@ function convertQuoteToWO(i){
   if(!e) return;
   if(e.convertedWO){toast(`Already converted to ${e.convertedWO}`,'info');return;}
 
+  const lines=e.lines||[];
+  // Pick first ready line (or treat legacy single-line format)
+  const ln = lines.length ? lines[0] : {
+    partDesc:e.part, qty:e.qty, spares:e.spares, partLen:e.partLen, partOff:e.partOff,
+    barDia:e.barDia, matGrade:e.matGrade, totalBars:e.totalBars, cycleMin:e.cycleMin,
+    setupMin:e.setupMin, secMin:e.secMin, rate:e.rate, barSummaryStr:e.barSummary,
+  };
+
   openNewWOModal();
 
-  // Pre-fill from the quote
-  document.getElementById('o-part').value=e.part;
-  document.getElementById('o-qty').value=e.qty;
+  document.getElementById('o-part').value=ln.partDesc||e.part;
+  document.getElementById('o-qty').value=ln.qty||e.qty;
   document.getElementById('o-quoted').value=e.totalQuote.toFixed(2);
   if(e.custPO) document.getElementById('o-custpo').value=e.custPO;
 
   const custSel=document.getElementById('o-cust');
-  if(custSel && e.custCode){
-    custSel.value=e.custCode;
-  }
+  if(custSel && e.custCode) custSel.value=e.custCode;
 
-  // Try to match the quote's material grade/diameter to an in-stock material record
-  if(e.matGrade){
-    const gradeLower=e.matGrade.toLowerCase();
+  const matGrade=ln.matGrade||e.matGrade||'';
+  if(matGrade){
+    const gradeLower=matGrade.toLowerCase();
     const match=db.material.find(m=>
-      m.grade.toLowerCase().includes(gradeLower) || gradeLower.includes(m.grade.toLowerCase())
-    ) || db.material.find(m=>
-      e.barDia && m.size.includes(e.barDia+'mm')
-    );
-
+      m.grade.toLowerCase().includes(gradeLower)||gradeLower.includes(m.grade.toLowerCase())
+    )||db.material.find(m=>ln.barDia&&m.size.includes(ln.barDia+'mm'));
     if(match){
-      // Set material type first so the stock dropdown filters correctly, then select the matched ref
       document.getElementById('o-mat-type').value=match.type;
       filterWOMaterialStock();
       document.getElementById('o-mat').value=match.ref;
       fillWOMatDetails();
-      if(e.totalBars) document.getElementById('o-matqty').value=e.totalBars;
+      if(ln.totalBars) document.getElementById('o-matqty').value=ln.totalBars;
     } else {
-      // No exact stock match — still pre-fill the description so it's clear what's needed
-      document.getElementById('o-mat-desc').value=e.matGrade+(e.barDia?` · Ø${e.barDia}mm`:'');
+      document.getElementById('o-mat-desc').value=matGrade+(ln.barDia?` · Ø${ln.barDia}mm`:'');
       const infoEl=document.getElementById('o-mat-stock-info');
-      if(infoEl) infoEl.innerHTML=`<div style="padding:8px 10px;background:var(--amber-dim);border-radius:var(--r);border-left:3px solid var(--amber);color:var(--amber)">⚠ No matching stock found for "${e.matGrade}" — check material register or raise an RFQ/PO before starting this job.</div>`;
+      if(infoEl) infoEl.innerHTML=`<div style="padding:8px 10px;background:var(--amber-dim);border-radius:var(--r);border-left:3px solid var(--amber);color:var(--amber)">⚠ No matching stock found for "${matGrade}"</div>`;
     }
   }
 
-  // Carry over the quote's costing breakdown so it isn't lost on conversion
+  const otherLines=lines.slice(1);
   const breakdown=[
-    e.notes?e.notes:'',
-    `Quote ${e.id} breakdown — cycle: ${e.cycleMin}min, setup: ${e.setupMin}min, secondary ops: ${e.secMin}min, rate: £${e.rate}/hr, margin: ${e.margin}%, delivery: £${e.delivery}, other: £${e.other}`,
-    e.barSummary?`Bar plan: ${e.barSummary} (${e.totalBars} bars)`:'',
+    e.notes||'',
+    `Quote ${e.id} — cycle: ${ln.cycleMin}min, setup: ${ln.setupMin}min, secondary: ${ln.secMin}min, rate: £${ln.rate}/hr, margin: ${e.margin}%, delivery: £${e.delivery}, other: £${e.other}`,
+    ln.barSummaryStr?`Bar plan: ${ln.barSummaryStr} (${ln.totalBars} bars)`:'',
+    otherLines.length?`Other lines in this quote: ${otherLines.map(l=>l.partDesc).join(', ')}. Create separate WOs for these.`:'',
   ].filter(Boolean).join('\n');
   const notesEl=document.getElementById('o-notes');
   if(notesEl) notesEl.value=breakdown;
 
-  // Tag this quote so we know it's been converted once the WO is actually saved
   pendingQuoteConversion=i;
   toast(`Quote ${e.id} loaded — complete the work order details and click Create WO`,'info');
 }
 
 function loadEstimate(i){
   const e = savedEstimates[i];
-  document.getElementById('est-part').value = e.part;
-  document.getElementById('est-length').value = e.partLen;
-  document.getElementById('est-partoff').value = e.partOff;
-  document.getElementById('est-qty').value = e.qty;
-  document.getElementById('est-spares').value = e.spares||0;
-  document.getElementById('est-mat-grade').value = e.matGrade||'';
-  document.getElementById('est-cycle').value = e.cycleMin;
-  document.getElementById('est-setup').value = e.setupMin;
-  document.getElementById('est-rate').value = e.rate;
-  document.getElementById('est-secondary').value = e.secMin||0;
-  document.getElementById('est-margin').value = e.margin;
+  if(!e) return;
+
+  if(e.lines && e.lines.length){
+    // New multi-line format
+    estLines = e.lines.map(ln=>({
+      part: ln.partDesc||'',
+      partLen: ln.partLen||0,
+      partOff: ln.partOff||5,
+      qty: ln.qty||0,
+      spares: ln.spares||0,
+      matRef: ln.matRef||'',
+      matGrade: ln.matGrade||'',
+      barDia: ln.barDia||0,
+      cycleMin: ln.cycleMin||0,
+      setupMin: ln.setupMin||0,
+      rate: ln.rate||(db.settings.rate||45),
+      secMin: ln.secMin||0,
+    }));
+  } else {
+    // Legacy single-line format
+    estLines = [{
+      part: e.part||'',
+      partLen: e.partLen||0,
+      partOff: e.partOff||5,
+      qty: e.qty||0,
+      spares: e.spares||0,
+      matRef: '',
+      matGrade: e.matGrade||'',
+      barDia: e.barDia||0,
+      cycleMin: e.cycleMin||0,
+      setupMin: e.setupMin||0,
+      rate: e.rate||(db.settings.rate||45),
+      secMin: e.secMin||0,
+    }];
+  }
+
+  renderQuoteLines();
+  document.getElementById('est-margin').value = e.margin||30;
   document.getElementById('est-delivery').value = e.delivery||0;
   document.getElementById('est-other').value = e.other||0;
   document.getElementById('est-notes').value = e.notes||'';
-  if(e.barDia) document.getElementById('est-bar-dia').value = e.barDia;
   if(e.custCode){
     const custSel=document.getElementById('est-customer');
     if(custSel) custSel.value=e.custCode;
   }
-  runEstimate();
+  if(e.custPO){
+    const poEl=document.getElementById('est-cust-po');
+    if(poEl) poEl.value=e.custPO;
+  }
+  runEstimateAll();
   toast('Estimate loaded','success');
   window.scrollTo(0,0);
 }
 
 function printEstimate(){
-  const part = document.getElementById('est-part').value||'Estimate';
-  if(!lastEstimateResult || lastEstimateResult.part!==part){ toast('Calculate the estimate first','error'); return; }
-  const e = lastEstimateResult;
-  const c = (v) => `£${v.toFixed(2)}`;
-  const rows = [
-    ['Machining time per part', `${e.machiningMinsPerPart.toFixed(1)} mins`],
-    ['Material cost', e.matCostKnown ? c(e.matCost) : 'TBD'],
-  ];
-  openPrintWindow(`<!DOCTYPE html><html><head><title>Quote — ${part}</title>
+  if(!lastEstimateResult){toast('Calculate the estimate first','error');return;}
+  const r=lastEstimateResult;
+  const readyLines=(r.lines||[]).filter(l=>l.ready);
+  if(!readyLines.length){toast('No complete line items to print','error');return;}
+  const c=(v)=>`£${v.toFixed(2)}`;
+  const custEl=document.getElementById('est-customer');
+  const custName=custEl?.options[custEl.selectedIndex]?.text||'';
+  const custPO=document.getElementById('est-cust-po')?.value||'';
+  const notes=document.getElementById('est-notes')?.value||'';
+  const margin=parseFloat(document.getElementById('est-margin')?.value)||0;
+  const delivery=parseFloat(document.getElementById('est-delivery')?.value)||0;
+  const other=parseFloat(document.getElementById('est-other')?.value)||0;
+
+  openPrintWindow(`<!DOCTYPE html><html><head><title>Quote</title>
   <style>
   body{font-family:'Courier New',monospace;padding:15mm;font-size:10pt;color:#000;background:#fff}
   h2{font-size:14pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:10px}
   table{width:100%;border-collapse:collapse;margin-top:10px}
-  td{padding:8px 4px;border-bottom:1px solid #ccc}
-  td:last-child{text-align:right;font-weight:600}
-  .total td{border-top:2px solid #000;border-bottom:none;font-size:13pt;font-weight:700;padding-top:12px}
+  th{text-align:left;padding:6px 4px;border-bottom:2px solid #000;font-size:9pt}
+  td{padding:6px 4px;border-bottom:1px solid #ccc}
+  td.r{text-align:right}
+  .total td{border-top:2px solid #000;border-bottom:none;font-size:12pt;font-weight:700;padding-top:10px}
   @media print{button{display:none}}</style></head><body>
-  <h2>${db.settings.company} — QUOTE</h2>
-  <p>Date: ${new Date().toLocaleDateString('en-GB')} &nbsp; Part: ${part} &nbsp; Qty: ${e.qty}</p>
+  <h2>${db.settings.company||'Quote'} — QUOTATION</h2>
+  <p>Date: ${new Date().toLocaleDateString('en-GB')}${custName?' &nbsp;|&nbsp; Customer: '+custName:''}${custPO?' &nbsp;|&nbsp; PO: '+custPO:''}</p>
   <table>
-  ${rows.map(([label,val])=>`<tr><td>${label}</td><td>${val}</td></tr>`).join('')}
-  <tr class="total"><td>Total price (${e.qty} off)</td><td>${c(e.totalQuote)}</td></tr>
-  <tr><td>Unit price</td><td>${c(e.unitPrice)}</td></tr>
+    <thead><tr><th>#</th><th>Part description</th><th>Qty</th><th class="r">Unit price</th><th class="r">Line total</th></tr></thead>
+    <tbody>
+      ${readyLines.map((ln,n)=>{
+        const unitCost = ln.qty>0 ? (ln.lineCostBeforeMargin/ln.qty)*(1+margin/100) : 0;
+        const lineTotal = unitCost*ln.qty;
+        return `<tr><td>${n+1}</td><td>${ln.partDesc}</td><td class="r">${ln.qty}</td><td class="r">${ln.matCostKnown?c(unitCost):'TBD'}</td><td class="r">${ln.matCostKnown?c(lineTotal):'TBD'}</td></tr>`;
+      }).join('')}
+      ${other>0?`<tr><td colspan="4">Other costs</td><td class="r">${c(other)}</td></tr>`:''}
+      ${delivery>0?`<tr><td colspan="4">Delivery / carriage</td><td class="r">${c(delivery)}</td></tr>`:''}
+    </tbody>
   </table>
+  <table style="margin-top:16px">
+    <tr class="total"><td>TOTAL (inc. ${margin}% margin)</td><td class="r">${c(r.totalQuote)}${r.anyMatTBD?' + material TBD':''}</td></tr>
+  </table>
+  ${notes?`<p style="margin-top:16px;font-size:9pt">${notes}</p>`:''}
   <button onclick="window.print()" style="margin-top:20px;padding:8px 20px">Print</button>
   </body></html>`);
 }
