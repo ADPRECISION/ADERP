@@ -8117,7 +8117,7 @@ function addToDraftRFQ(dataAttr){
   if(!approved.length){ toast('No approved suppliers yet — add one or approve an existing supplier first','warn'); return; }
   draftRFQItem = item;
   const supSel = document.getElementById('rda-supplier');
-  if(supSel) supSel.innerHTML = approved.map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
+  if(supSel) supSel.innerHTML = '<option value="">— Select supplier —</option>'+approved.map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
   document.getElementById('rda-summary').textContent =
     `${item.grade}${item.dia?' Ø'+item.dia+'mm':''} — ${item.totalBarMm}mm for "${item.partDesc||'—'}" (${item.qty} off)`;
   openModal('modal-rfq-draft-add');
@@ -8593,8 +8593,7 @@ function runEstimateAll(){
           notes:`${totalQty} off billet${billetSpec?' '+billetSpec:''} ${matGrade}`,
         }).replace(/"/g,'&quot;');
         rfqBtns = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-          <button onclick="openRFQ(${rfqPayload})" style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">Create RFQ</button>
-          <button onclick="addToDraftRFQ(${rfqPayload})" style="cursor:pointer;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">+ Add to draft RFQ</button>
+          <button onclick="addToDraftRFQ(${rfqPayload})" style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">+ Add to draft RFQ</button>
         </div>`;
       }
 
@@ -8684,8 +8683,7 @@ function runEstimateAll(){
     if(!matCostKnown && matGrade && matGrade.trim()){
       const rfqPayload = JSON.stringify({grade:matGrade, dia:barDia, barOrder:barOrder.map(b=>({len:b.len,qty:b.qty})), totalBarMm, qty:totalQty, partDesc}).replace(/"/g,'&quot;');
       rfqBtns = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <button onclick="openRFQ(${rfqPayload})" style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">Create RFQ</button>
-        <button onclick="addToDraftRFQ(${rfqPayload})" style="cursor:pointer;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">+ Add to draft RFQ</button>
+        <button onclick="addToDraftRFQ(${rfqPayload})" style="cursor:pointer;background:var(--amber);color:#fff;border:none;border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600">+ Add to draft RFQ</button>
       </div>`;
     }
     if(miniEl) miniEl.innerHTML = `
