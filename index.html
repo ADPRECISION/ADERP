@@ -7696,6 +7696,9 @@ function collectLineValues(){
     setupMin: parseFloat(document.getElementById(`ql-${i}-setup`)?.value)||0,
     rate: parseFloat(document.getElementById(`ql-${i}-rate`)?.value)||(db.settings.rate||45),
     secMin: parseFloat(document.getElementById(`ql-${i}-secondary`)?.value)||0,
+    // preserve sentinel properties that aren't stored in DOM
+    linkedRfqId: estLines[i]?.linkedRfqId,
+    linkedRfqItemIdx: estLines[i]?.linkedRfqItemIdx,
   }));
 }
 
@@ -9243,8 +9246,16 @@ function loadEstimate(i){
         const gradeLower = ln.matGrade.trim().toLowerCase();
         const itemIdx = rfq.items.findIndex(it=>(it.grade||'').trim().toLowerCase()===gradeLower);
         if(itemIdx>=0 && rfq.items[itemIdx].quotedPrice>0){
-          ln.linkedRfqId = e.rfqId;
-          ln.linkedRfqItemIdx = itemIdx;
+          const item = rfq.items[itemIdx];
+          const isBillet = ln.matForm==='billet-rect' || ln.matForm==='billet-round';
+          if(isBillet){
+            // Billet cost is per-billet; RFQ item quotedPrice is the total for all billets
+            const totalQty = (ln.qty||0) + (ln.spares||0);
+            ln.billetCost = totalQty > 0 ? item.quotedPrice / totalQty : item.quotedPrice;
+          } else {
+            ln.linkedRfqId = e.rfqId;
+            ln.linkedRfqItemIdx = itemIdx;
+          }
           matPricesFilled = true;
         }
       });
