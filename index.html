@@ -7672,12 +7672,6 @@ function renderQuoteLines(){
       </div>
       <div class="fg"><label>Cost per billet (£) <span style="color:var(--txt3);font-weight:400">leave blank if TBD</span></label><input type="number" id="ql-${i}-billet-cost" value="${ln.billetCost||''}" placeholder="0.00" min="0" step="0.01" oninput="runEstimateAll()"/></div>`;
 
-    const barFields = `
-      <div class="fg2">
-        <div class="fg"><label>Finished part length (mm)</label><input type="number" id="ql-${i}-length" value="${ln.partLen||''}" placeholder="e.g. 45" min="1" step="0.1" oninput="runEstimateAll()"/></div>
-        <div class="fg"><label>Parting off (mm)</label><input type="number" id="ql-${i}-partoff" value="${ln.partOff!==undefined?ln.partOff:5}" min="0" step="0.5" oninput="runEstimateAll()"/></div>
-      </div>
-      <div class="fg"><label>Bar dia (mm)</label><input type="number" id="ql-${i}-dia" value="${ln.barDia||''}" placeholder="e.g. 44.45" min="1" step="0.001" oninput="runEstimateAll()"/></div>`;
 
     return `
     <div class="card" style="margin-bottom:12px">
@@ -7694,7 +7688,11 @@ function renderQuoteLines(){
               <div class="fg"><label>Order qty</label><input type="number" id="ql-${i}-qty" value="${ln.qty||''}" placeholder="e.g. 50" min="1" oninput="runEstimateAll()"/></div>
               <div class="fg"><label>Spares</label><input type="number" id="ql-${i}-spares" value="${ln.spares||0}" min="0" oninput="runEstimateAll()"/></div>
             </div>
-            <div class="fg"><label>Material stock <span style="color:var(--txt3);font-weight:400">(optional — overrides manual grade)</span></label>
+            <div class="fg2">
+              <div class="fg"><label>Finished part length (mm)</label><input type="number" id="ql-${i}-length" value="${ln.partLen||''}" placeholder="e.g. 45" min="1" step="0.1" oninput="runEstimateAll()"/></div>
+              <div class="fg"><label>Parting off (mm)</label><input type="number" id="ql-${i}-partoff" value="${ln.partOff!==undefined?ln.partOff:5}" min="0" step="0.5" oninput="runEstimateAll()"/></div>
+            </div>
+            <div class="fg"><label>Material stock <span style="color:var(--txt3);font-weight:400">(optional)</span></label>
               <select id="ql-${i}-matsel" onchange="estimatorPickMaterialLine(${i})">${matOptions.replace(`value="${ln.matRef||''}"`,`value="${ln.matRef||''}" selected`)}</select>
             </div>
             <div class="fg"><label>Material form</label>
@@ -7704,10 +7702,9 @@ function renderQuoteLines(){
                 <option value="billet-round"${matForm==='billet-round'?' selected':''}>Billet — round (Ø×L)</option>
               </select>
             </div>
-            <div class="fg2">
-              <div class="fg"><label>Material grade</label><input id="ql-${i}-grade" value="${(ln.matGrade||'').replace(/"/g,'&quot;')}" placeholder="e.g. 6082 T6 Aluminium" oninput="runEstimateAll()"/></div>
-            </div>
-            ${matForm==='billet-rect' ? billetRectFields : matForm==='billet-round' ? billetRoundFields : barFields}
+            <div class="fg"><label>Material grade</label><input id="ql-${i}-grade" value="${(ln.matGrade||'').replace(/"/g,'&quot;')}" placeholder="e.g. 6082 T6 Aluminium" oninput="runEstimateAll()"/></div>
+            ${matForm==='billet-rect' ? billetRectFields : matForm==='billet-round' ? billetRoundFields : ''}
+            ${matForm==='bar' ? `<div class="fg"><label>Bar dia (mm)</label><input type="number" id="ql-${i}-dia" value="${ln.barDia||''}" placeholder="e.g. 44.45" min="1" step="0.001" oninput="runEstimateAll()"/></div>` : ''}
           </div>
           <!-- Right column -->
           <div>
