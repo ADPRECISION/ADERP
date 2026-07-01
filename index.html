@@ -919,51 +919,63 @@ tbody tr:hover td{background:var(--bg3)}
           </div>
         </div>
 
-        <!-- Line items -->
-        <div id="est-lines"></div>
-        <div style="margin-bottom:12px">
-          <button class="ghost" onclick="addQuoteLine()">+ Add line item</button>
-        </div>
+        <!-- Two-column layout: estimator left, quote history right -->
+        <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;align-items:start">
 
-        <!-- Footer card: margin, delivery, other, notes -->
-        <div class="card" style="margin-bottom:12px">
-          <div class="card-header">Margin &amp; delivery</div>
-          <div class="card-body">
-            <div class="fg2">
-              <div class="fg"><label>Profit margin (%)</label><input type="number" id="est-margin" value="30" min="0" max="200" step="1" oninput="runEstimateAll()"/></div>
-              <div class="fg"><label>Delivery / carriage (£)</label><input type="number" id="est-delivery" value="0" step="0.5" min="0" oninput="runEstimateAll()"/></div>
-              <div class="fg"><label>Other costs (tooling, subcontract etc.) £</label><input type="number" id="est-other" value="0" step="0.5" min="0" oninput="runEstimateAll()"/></div>
-              <div class="fg"><label>Notes for customer</label><textarea id="est-notes" rows="2" placeholder="e.g. Price valid 30 days, material subject to surcharge…" oninput="runEstimateAll()"></textarea></div>
+          <!-- LEFT: line items + footer + results -->
+          <div>
+            <div id="est-lines"></div>
+            <div style="margin-bottom:12px">
+              <button class="ghost" onclick="addQuoteLine()">+ Add line item</button>
+            </div>
+
+            <!-- Footer card -->
+            <div class="card" style="margin-bottom:12px">
+              <div class="card-header">Margin &amp; delivery</div>
+              <div class="card-body">
+                <div class="fg2">
+                  <div class="fg"><label>Profit margin (%)</label><input type="number" id="est-margin" value="30" min="0" max="200" step="1" oninput="runEstimateAll()"/></div>
+                  <div class="fg"><label>Delivery / carriage (£)</label><input type="number" id="est-delivery" value="0" step="0.5" min="0" oninput="runEstimateAll()"/></div>
+                  <div class="fg"><label>Other costs (tooling, subcontract etc.) £</label><input type="number" id="est-other" value="0" step="0.5" min="0" oninput="runEstimateAll()"/></div>
+                  <div class="fg"><label>Notes for customer</label><textarea id="est-notes" rows="2" placeholder="e.g. Price valid 30 days, material subject to surcharge…" oninput="runEstimateAll()"></textarea></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Grand total results -->
+            <div id="est-results">
+              <div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px">
+                <div class="es-icon">£</div>
+                <p>Fill in the line items above to see your estimate</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Grand total results -->
-        <div id="est-results">
-          <div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:40px">
-            <div class="es-icon">£</div>
-            <p>Fill in the line items above to see your estimate</p>
-          </div>
-        </div>
-
-        <!-- SAVED ESTIMATES / QUOTE HISTORY -->
-        <div style="margin-top:18px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-            <div style="font-size:10px;font-family:var(--mono);color:var(--txt3);letter-spacing:.1em;text-transform:uppercase">Quote history</div>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              <select id="qh-cust-filter" onchange="renderSavedEstimates()" style="font-size:11.5px;padding:5px 8px">
-                <option value="">All customers</option>
-              </select>
-              <select id="qh-status-filter" onchange="renderSavedEstimates()" style="font-size:11.5px;padding:5px 8px">
-                <option value="">All statuses</option>
-                <option value="Draft">Draft</option>
-                <option value="Sent">Sent</option>
-                <option value="Accepted">Accepted</option>
-                <option value="Declined">Declined</option>
-              </select>
+          <!-- RIGHT: quote history panel (sticky) -->
+          <div style="position:sticky;top:12px">
+            <div class="card">
+              <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                <span>Quote history</span>
+                <div style="display:flex;gap:5px">
+                  <select id="qh-cust-filter" onchange="renderSavedEstimates()" style="font-size:11px;padding:3px 6px">
+                    <option value="">All customers</option>
+                  </select>
+                  <select id="qh-status-filter" onchange="renderSavedEstimates()" style="font-size:11px;padding:3px 6px">
+                    <option value="">All statuses</option>
+                    <option value="Waiting for material quote">Awaiting mat. quote</option>
+                    <option value="Ready to quote">Ready to quote</option>
+                    <option value="Sent to customer">Sent to customer</option>
+                    <option value="Accepted">Accepted</option>
+                    <option value="Declined">Declined</option>
+                  </select>
+                </div>
+              </div>
+              <div class="card-body" style="padding:0;max-height:calc(100vh - 200px);overflow-y:auto">
+                <div id="est-saved-list" style="padding:8px"></div>
+              </div>
             </div>
           </div>
-          <div id="est-saved-list"></div>
+
         </div>
       </div>
 
@@ -2322,6 +2334,20 @@ Snainton, YO13 9BD</textarea></div>
 </div></div>
 
 <!-- ESTIMATOR ADD CUSTOMER MODAL -->
+<div class="modal-overlay" id="modal-est-save-rfq">
+<div class="modal" style="width:480px">
+  <div class="modal-head"><h3>Create material RFQ?</h3><button class="ghost" onclick="closeModal('modal-est-save-rfq')">✕</button></div>
+  <div class="modal-content">
+    <div class="alert al-info" style="margin-bottom:12px;font-size:12px">Some line items have no material price yet. Create a draft RFQ now to send to your supplier — when the quote comes back you can load this estimate and the prices will auto-fill.</div>
+    <div id="esr-tbd-lines" style="margin-bottom:12px;font-size:12px;color:var(--txt2)"></div>
+    <div class="fg"><label>Supplier</label><select id="esr-supplier"></select></div>
+  </div>
+  <div class="modal-footer">
+    <button onclick="closeModal('modal-est-save-rfq')">Skip for now</button>
+    <button class="primary" onclick="confirmEstSaveRFQ()">Create draft RFQ</button>
+  </div>
+</div></div>
+
 <div class="modal-overlay" id="modal-est-customer">
 <div class="modal" style="width:480px">
   <div class="modal-head"><h3>Add new customer</h3><button class="ghost" onclick="closeModal('modal-est-customer')">✕</button></div>
@@ -7608,6 +7634,10 @@ let lastEstimateResult = null;
 let estLines = [{}];
 
 function renderEstimator(){
+  // Ensure savedEstimates is always synced with db.estimates
+  if(!db.estimates) db.estimates=[];
+  savedEstimates = db.estimates;
+
   // Populate customer select
   const custSel = document.getElementById('est-customer');
   if(custSel) custSel.innerHTML='<option value="">— Select or add customer —</option>'+
@@ -8583,6 +8613,18 @@ function runEstimateAll(){
       matCost = barOrder.reduce((a,b)=>a+b.qty*(stockMat.cost*(b.len/3000)), 0);
       matCostKnown = true;
     }
+    // Check for a directly linked RFQ item (from loadEstimate auto-fill)
+    const linkedLine = estLines[i];
+    if(!matCostKnown && linkedLine && linkedLine.linkedRfqItemIdx !== undefined){
+      const linkedRfq = (db.rfqs||[]).find(r=>r.id===linkedLine.linkedRfqId);
+      const linkedItem = linkedRfq && linkedRfq.items[linkedLine.linkedRfqItemIdx];
+      if(linkedItem && linkedItem.quotedPrice>0){
+        const itemMm = linkedItem.qtyMm || totalBarMm || 1;
+        matCost = linkedItem.quotedPrice * (totalBarMm / itemMm);
+        matCostKnown = true;
+        matRFQ = linkedRfq;
+      }
+    }
     if(!matCostKnown && matGrade && matGrade.trim()){
       const gradeLower = matGrade.trim().toLowerCase();
       matRFQ = (db.rfqs||[]).find(r=>r.kind!=='other' && (r.status==='Quoted'||r.status==='Accepted') &&
@@ -8820,6 +8862,8 @@ function saveEstimate(){
   const notes=document.getElementById('est-notes')?.value||'';
   const totalQuote=lastEstimateResult.totalQuote;
   const unitPrice=readyLines.length===1&&readyLines[0].qty>0?totalQuote/readyLines[0].qty:totalQuote/Math.max(1,(lastEstimateResult.qty||1));
+  const anyMatTBD = readyLines.some(l=>!l.matCostKnown);
+  const status = anyMatTBD ? 'Waiting for material quote' : 'Ready to quote';
 
   savedEstimates.unshift({
     id:'EST-'+Date.now(),
@@ -8832,14 +8876,79 @@ function saveEstimate(){
     margin,delivery,other,notes,
     totalQuote,unitPrice,
     savedBy:curUser.name,
-    status:'Draft',
-    statusHistory:[{status:'Draft',by:curUser.name,date:todayISO()}],
+    status,
+    statusHistory:[{status,by:curUser.name,date:todayISO()}],
+    rfqId:'',
     convertedWO:'',
     qty:lastEstimateResult.qty||0,
     spares:0,
   });
   renderSavedEstimates();
-  toast('Estimate saved','success');
+
+  if(anyMatTBD){
+    openEstSaveRFQModal();
+  } else {
+    toast('Estimate saved — ready to quote customer','success');
+  }
+}
+
+function openEstSaveRFQModal(){
+  const est = savedEstimates[0];
+  if(!est) return;
+  const tbdLines = (est.lines||[]).filter(l=>l.ready && !l.matCostKnown);
+  document.getElementById('esr-tbd-lines').innerHTML =
+    '<strong>Lines with TBD material:</strong><ul style="margin:6px 0 0 16px;padding:0">'+
+    tbdLines.map(l=>`<li>${l.partDesc||'Unnamed'} — ${l.matGrade||'no grade'}</li>`).join('')+'</ul>';
+  const supSel = document.getElementById('esr-supplier');
+  if(supSel) supSel.innerHTML = '<option value="">— Select supplier —</option>'+
+    (db.suppliers||[]).filter(s=>s.status==='Approved').map(s=>`<option value="${s.code}">${s.name}</option>`).join('');
+  openModal('modal-est-save-rfq');
+}
+
+function confirmEstSaveRFQ(){
+  const supCode = document.getElementById('esr-supplier')?.value;
+  if(!supCode){toast('Select a supplier','error');return;}
+  const sup = db.suppliers.find(s=>s.code===supCode);
+  const est = savedEstimates[0];
+  if(!est) return;
+  const tbdLines = (est.lines||[]).filter(l=>l.ready && !l.matCostKnown);
+
+  // Find or create Draft RFQ for this supplier
+  let draft = (db.rfqs||[]).find(r=>r.status==='Draft' && r.suppCode===supCode);
+  if(!draft){
+    if(!db.rfqs) db.rfqs=[];
+    draft = {
+      id:'RFQ-'+(db.rfqs.length+1).toString().padStart(4,'0'),
+      suppCode:supCode, suppName:sup?.name||supCode,
+      status:'Draft', kind:'material',
+      grade:'', qtyMm:0, quotedPrice:0, quotedLead:'',
+      items:[], estId:est.id,
+    };
+    db.rfqs.push(draft);
+  }
+  if(!draft.estId) draft.estId = est.id;
+
+  tbdLines.forEach(ln=>{
+    draft.items.push({
+      grade: ln.matGrade||'',
+      dia: ln.barDia||0,
+      qtyMm: ln.totalBarMm||0,
+      matType: guessMatTypeFromGrade(ln.matGrade||''),
+      barOrder: (ln.barOrder||[]).map(b=>({len:b.len,qty:b.qty})),
+      partDesc: ln.partDesc||'',
+      partQty: ln.qty||0,
+      billetSpec: ln.billetSpec||'',
+      matForm: ln.matForm||'bar',
+      quotedPrice: 0,
+    });
+  });
+  draft.grade = draft.items.map(it=>it.grade).filter(Boolean).join(', ');
+
+  est.rfqId = draft.id;
+  closeModal('modal-est-save-rfq');
+  renderSavedEstimates();
+  saveDB();
+  toast(`Estimate saved — draft RFQ ${draft.id} created. Go to RFQs to send it.`, 'success');
 }
 
 function renderSavedEstimates(){
@@ -8872,35 +8981,65 @@ function renderSavedEstimates(){
     return;
   }
 
-  const statusColors={Draft:'b-gray',Sent:'b-blue',Accepted:'b-green',Declined:'b-red'};
+  const statusBadge = s => {
+    const map = {
+      'Waiting for material quote': 'background:var(--amber);color:#fff',
+      'Ready to quote':             'background:#2563eb;color:#fff',
+      'Sent to customer':           'background:#0891b2;color:#fff',
+      'Accepted':                   'background:var(--green);color:#fff',
+      'Declined':                   'background:var(--red);color:#fff',
+      'Draft':                      'background:var(--bg4);color:var(--txt2)',
+    };
+    return `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;${map[s]||map['Draft']}">${s||'Draft'}</span>`;
+  };
 
-  document.getElementById('est-saved-list').innerHTML=`
-    <div class="card"><div class="tbl-wrap"><table>
-      <thead><tr><th>Ref</th><th>Date</th><th>Customer</th><th>Part</th><th>Qty</th><th>Unit price</th><th>Total</th><th>Status</th><th></th></tr></thead>
-      <tbody>${list.map((e)=>{
-        const i=savedEstimates.indexOf(e);
-        return `<tr>
-        <td class="td-mono" style="color:var(--accent)">${e.id}</td>
-        <td class="td-mono td-muted">${e.date}</td>
-        <td style="font-size:11.5px">${e.custName||'—'}</td>
-        <td style="font-weight:500">${e.part}</td>
-        <td class="td-mono">${e.qty}${e.spares>0?` <span style="color:var(--txt3)">+${e.spares}sp</span>`:''}</td>
-        <td class="td-mono" style="color:var(--green);font-weight:600">£${e.unitPrice.toFixed(2)}</td>
-        <td class="td-mono" style="color:var(--accent);font-weight:600">£${e.totalQuote.toFixed(2)}</td>
-        <td>
-          <select onchange="setQuoteStatus(${i},this.value)" style="font-size:11px;padding:3px 6px;background:var(--bg4);border:1px solid var(--border3);border-radius:var(--r);color:var(--txt)">
-            ${['Draft','Sent','Accepted','Declined'].map(s=>`<option value="${s}" ${e.status===s?'selected':''}>${s}</option>`).join('')}
-          </select>
-          ${e.convertedWO?`<div style="margin-top:3px"><a href="#" onclick="navigate('orders');viewWO('${e.convertedWO}');return false;" style="font-size:10px;color:var(--accent)">→ ${e.convertedWO}</a></div>`:''}
-        </td>
-        <td style="white-space:nowrap">
-          <button class="ghost xs" onclick="loadEstimate(${i})" data-tip="Load this quote back into the calculator">Load</button>
-          ${e.status==='Accepted'&&!e.convertedWO?`<button class="ghost xs" style="color:var(--green);border-color:var(--green)" onclick="convertQuoteToWO(${i})" data-tip="Create a new work order pre-filled from this quote">→ WO</button>`:''}
-          <button class="ghost xs" onclick="printEstimateSaved(${i})" data-tip="Print this saved estimate">🖨</button>
-          <button class="ghost xs" style="color:var(--red)" onclick="savedEstimates.splice(${i},1);renderSavedEstimates()" data-tip="Delete this saved estimate">✕</button>
-        </td>
-      </tr>`;}).join('')}</tbody>
-    </table></div></div>`;
+  const nextStepBtn = (e, i) => {
+    const s = e.status||'Draft';
+    if(s==='Waiting for material quote'){
+      return e.rfqId
+        ? `<button class="ghost xs" style="color:var(--accent);border-color:var(--accent)" onclick="navigate('rfqs')" title="Go to RFQs to send the material request">↗ View RFQ</button>`
+        : `<button class="ghost xs" style="color:var(--amber);border-color:var(--amber)" onclick="loadEstimate(${i});openEstSaveRFQModal()" title="Create a material RFQ">+ RFQ</button>`;
+    }
+    if(s==='Ready to quote'){
+      return `<button class="ghost xs" style="color:var(--accent);border-color:var(--accent)" onclick="printEstimateSaved(${i});setQuoteStatus(${i},'Sent to customer')" title="Print and mark as sent">🖨 Send</button>`;
+    }
+    if(s==='Sent to customer'){
+      return `<button class="ghost xs" style="color:var(--green);border-color:var(--green)" onclick="setQuoteStatus(${i},'Accepted')" title="Customer accepted">✓ Won</button>`+
+             `<button class="ghost xs" style="color:var(--red);border-color:var(--red)" onclick="setQuoteStatus(${i},'Declined')" title="Customer declined">✗ Lost</button>`;
+    }
+    if(s==='Accepted' && !e.convertedWO){
+      return `<button class="ghost xs" style="color:var(--green);border-color:var(--green)" onclick="convertQuoteToWO(${i})" title="Create work order">→ WO</button>`;
+    }
+    return '';
+  };
+
+  document.getElementById('est-saved-list').innerHTML = list.map((e)=>{
+    const i=savedEstimates.indexOf(e);
+    return `<div style="border-bottom:1px solid var(--border);padding:8px 4px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;flex-wrap:wrap">
+        <div style="min-width:0">
+          <div style="font-size:11px;font-family:var(--mono);color:var(--accent)">${e.id}</div>
+          <div style="font-weight:600;font-size:12px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" title="${e.part}">${e.part}</div>
+          <div style="font-size:11px;color:var(--txt3)">${e.custName||'—'} · ${e.date}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:14px;font-family:var(--mono);font-weight:700;color:var(--accent)">£${e.totalQuote.toFixed(2)}</div>
+          <div style="font-size:10px;color:var(--txt3)">£${e.unitPrice.toFixed(2)}/unit · qty ${e.qty}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap">
+        ${statusBadge(e.status)}
+        ${e.rfqId?`<span style="font-size:10px;color:var(--txt3)">${e.rfqId}</span>`:''}
+        ${e.convertedWO?`<a href="#" onclick="navigate('orders');viewWO('${e.convertedWO}');return false;" style="font-size:10px;color:var(--accent)">→ ${e.convertedWO}</a>`:''}
+      </div>
+      <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+        ${nextStepBtn(e,i)}
+        <button class="ghost xs" onclick="loadEstimate(${i})" title="Load into estimator">Load</button>
+        <button class="ghost xs" onclick="printEstimateSaved(${i})" title="Print">🖨</button>
+        <button class="ghost xs" style="color:var(--red)" onclick="savedEstimates.splice(${i},1);saveDB();renderSavedEstimates()" title="Delete">✕</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function setQuoteStatus(i,status){
@@ -8977,6 +9116,7 @@ function loadEstimate(i){
     // New multi-line format
     estLines = e.lines.map(ln=>({
       part: ln.partDesc||'',
+      matForm: ln.matForm||'bar',
       partLen: ln.partLen||0,
       partOff: ln.partOff||5,
       qty: ln.qty||0,
@@ -8984,6 +9124,11 @@ function loadEstimate(i){
       matRef: ln.matRef||'',
       matGrade: ln.matGrade||'',
       barDia: ln.barDia||0,
+      billetL: ln.billetL||0,
+      billetW: ln.billetW||0,
+      billetH: ln.billetH||0,
+      billetD: ln.billetD||0,
+      billetCost: ln.billetCost||0,
       cycleMin: ln.cycleMin||0,
       setupMin: ln.setupMin||0,
       rate: ln.rate||(db.settings.rate||45),
@@ -8993,6 +9138,7 @@ function loadEstimate(i){
     // Legacy single-line format
     estLines = [{
       part: e.part||'',
+      matForm: 'bar',
       partLen: e.partLen||0,
       partOff: e.partOff||5,
       qty: e.qty||0,
@@ -9005,6 +9151,24 @@ function loadEstimate(i){
       rate: e.rate||(db.settings.rate||45),
       secMin: e.secMin||0,
     }];
+  }
+
+  // If this estimate has a linked RFQ that's been quoted, auto-link prices
+  let matPricesFilled = false;
+  if(e.rfqId){
+    const rfq = (db.rfqs||[]).find(r=>r.id===e.rfqId);
+    if(rfq && (rfq.status==='Quoted'||rfq.status==='Accepted') && rfq.items && rfq.items.length){
+      estLines.forEach(ln=>{
+        if(!ln.matGrade) return;
+        const gradeLower = ln.matGrade.trim().toLowerCase();
+        const itemIdx = rfq.items.findIndex(it=>(it.grade||'').trim().toLowerCase()===gradeLower);
+        if(itemIdx>=0 && rfq.items[itemIdx].quotedPrice>0){
+          ln.linkedRfqId = e.rfqId;
+          ln.linkedRfqItemIdx = itemIdx;
+          matPricesFilled = true;
+        }
+      });
+    }
   }
 
   renderQuoteLines();
@@ -9021,7 +9185,20 @@ function loadEstimate(i){
     if(poEl) poEl.value=e.custPO;
   }
   runEstimateAll();
-  toast('Estimate loaded','success');
+
+  if(matPricesFilled){
+    // Update estimate status now that material prices are known
+    if(e.status==='Waiting for material quote'){
+      e.status='Ready to quote';
+      e.statusHistory=e.statusHistory||[];
+      e.statusHistory.push({status:'Ready to quote',by:curUser.name,date:todayISO()});
+      saveDB();
+      renderSavedEstimates();
+    }
+    toast('Material prices loaded from RFQ — review and send to customer','success');
+  } else {
+    toast('Estimate loaded','success');
+  }
   window.scrollTo(0,0);
 }
 
@@ -11630,6 +11807,8 @@ function populateOrderSelects(){
 document.addEventListener('DOMContentLoaded', async ()=>{
   const restored = await loadDB();
   if(!restored) initDB();
+  if(!db.estimates) db.estimates=[];
+  savedEstimates = db.estimates;
   const savedBackupTime = localStorage.getItem(BACKUP_TIME_KEY);
   if(savedBackupTime){
     lastBackupTime = parseInt(savedBackupTime,10);
