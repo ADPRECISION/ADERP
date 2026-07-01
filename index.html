@@ -2334,6 +2334,19 @@ Snainton, YO13 9BD</textarea></div>
 </div></div>
 
 <!-- ESTIMATOR ADD CUSTOMER MODAL -->
+<div class="modal-overlay" id="modal-est-save-confirm">
+<div class="modal" style="width:400px">
+  <div class="modal-head"><h3>Save estimate</h3><button class="ghost" onclick="closeModal('modal-est-save-confirm')">✕</button></div>
+  <div class="modal-content">
+    <p id="esc-msg" style="font-size:13px;margin:0 0 16px"></p>
+  </div>
+  <div class="modal-footer">
+    <button onclick="closeModal('modal-est-save-confirm')">Cancel</button>
+    <button onclick="doSaveEstimate(false)">Save as new quote</button>
+    <button class="primary" id="esc-overwrite-btn" onclick="doSaveEstimate(true)">Overwrite</button>
+  </div>
+</div></div>
+
 <div class="modal-overlay" id="modal-est-save-rfq">
 <div class="modal" style="width:480px">
   <div class="modal-head"><h3>Create material RFQ?</h3><button class="ghost" onclick="closeModal('modal-est-save-rfq')">✕</button></div>
@@ -7632,16 +7645,28 @@ let pendingQuoteConversion = null;
 let pendingRFQConversion = null;
 let lastEstimateResult = null;
 let estLines = [{}];
+let activeEstimateIdx = null; // index in savedEstimates of the currently loaded estimate
+let estContext = { custCode:'', custPO:'', margin:30, delivery:0, other:0, notes:'' };
 
 function renderEstimator(){
   // Ensure savedEstimates is always synced with db.estimates
   if(!db.estimates) db.estimates=[];
   savedEstimates = db.estimates;
 
-  // Populate customer select
+  // Populate customer select and restore selected value
   const custSel = document.getElementById('est-customer');
-  if(custSel) custSel.innerHTML='<option value="">— Select or add customer —</option>'+
-    db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
+  if(custSel){
+    custSel.innerHTML='<option value="">— Select or add customer —</option>'+
+      db.customers.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
+    if(estContext.custCode) custSel.value = estContext.custCode;
+  }
+
+  // Restore footer/header context
+  const po = document.getElementById('est-cust-po');   if(po)  po.value  = estContext.custPO   || '';
+  const mg = document.getElementById('est-margin');    if(mg)  mg.value  = estContext.margin   ?? 30;
+  const dl = document.getElementById('est-delivery');  if(dl)  dl.value  = estContext.delivery ?? 0;
+  const ot = document.getElementById('est-other');     if(ot)  ot.value  = estContext.other    ?? 0;
+  const nt = document.getElementById('est-notes');     if(nt)  nt.value  = estContext.notes    || '';
 
   // Ensure at least one line
   if(!estLines || !estLines.length) estLines=[{}];
@@ -8453,6 +8478,9 @@ function printRFQ(){
 function runEstimate(){ runEstimateAll(); } // legacy alias
 
 function runEstimateAll(){
+  // Keep estLines in sync with DOM so tab-switches preserve values
+  if(document.getElementById('ql-0-part') !== null) collectLineValues();
+
   const margin   = parseFloat(document.getElementById('est-margin')?.value)||0;
   const delivery = parseFloat(document.getElementById('est-delivery')?.value)||0;
   const other    = parseFloat(document.getElementById('est-other')?.value)||0;
@@ -8745,12 +8773,20 @@ function runEstimateAll(){
       </div>
     </div>`;
 
+  // Persist header/footer so values survive tab-switches
+  estContext.custCode  = document.getElementById('est-customer')?.value||'';
+  estContext.custPO    = document.getElementById('est-cust-po')?.value||'';
+  estContext.margin    = margin;
+  estContext.delivery  = delivery;
+  estContext.other     = other;
+  estContext.notes     = document.getElementById('est-notes')?.value||'';
+
   lastEstimateResult = {
     lines: lineResults,
     totalQuote, marginAmt, grandCostBase, anyMatTBD,
     margin, delivery, other,
-    custCode: document.getElementById('est-customer')?.value||'',
-    custPO: document.getElementById('est-cust-po')?.value||'',
+    custCode: estContext.custCode,
+    custPO:   estContext.custPO,
     // For single-line compat
     part: readyLines.map(r=>r.partDesc).join(', '),
     qty: totalQtyAll,
@@ -8838,6 +8874,8 @@ function createWOFromEstimate(){
 
 function clearEstimator(){
   estLines=[{}];
+  activeEstimateIdx=null;
+  estContext={ custCode:'', custPO:'', margin:30, delivery:0, other:0, notes:'' };
   renderQuoteLines();
   const custSel=document.getElementById('est-customer');
   if(custSel) custSel.value='';
@@ -8854,7 +8892,23 @@ function saveEstimate(){
   const readyLines=(lastEstimateResult.lines||[]).filter(l=>l.ready);
   if(!readyLines.length){toast('Enter at least part description, length and qty on one line','error');return;}
 
+  if(activeEstimateIdx !== null && savedEstimates[activeEstimateIdx]){
+    const existing = savedEstimates[activeEstimateIdx];
+    document.getElementById('esc-msg').textContent =
+      `You loaded "${existing.id}". Overwrite it with the current values, or save as a brand-new quote?`;
+    document.getElementById('esc-overwrite-btn').textContent = `Overwrite ${existing.id}`;
+    openModal('modal-est-save-confirm');
+  } else {
+    doSaveEstimate(false);
+  }
+}
+
+function doSaveEstimate(overwrite){
+  closeModal('modal-est-save-confirm');
+  if(!lastEstimateResult) return;
+  const readyLines=(lastEstimateResult.lines||[]).filter(l=>l.ready);
   if(!savedEstimates) savedEstimates=[];
+
   const custEl=document.getElementById('est-customer');
   const margin=parseFloat(document.getElementById('est-margin')?.value)||0;
   const delivery=parseFloat(document.getElementById('est-delivery')?.value)||0;
@@ -8863,8 +8917,32 @@ function saveEstimate(){
   const totalQuote=lastEstimateResult.totalQuote;
   const unitPrice=readyLines.length===1&&readyLines[0].qty>0?totalQuote/readyLines[0].qty:totalQuote/Math.max(1,(lastEstimateResult.qty||1));
   const anyMatTBD = readyLines.some(l=>!l.matCostKnown);
-  const status = anyMatTBD ? 'Waiting for material quote' : 'Ready to quote';
 
+  if(overwrite && activeEstimateIdx !== null && savedEstimates[activeEstimateIdx]){
+    const e = savedEstimates[activeEstimateIdx];
+    const newStatus = anyMatTBD ? 'Waiting for material quote' : (e.status === 'Waiting for material quote' ? 'Ready to quote' : e.status);
+    e.lines = readyLines;
+    e.part = readyLines.map(r=>r.partDesc).join(', ');
+    e.custCode = custEl?.value||'';
+    e.custName = custEl?.options[custEl.selectedIndex]?.text||'';
+    e.custPO = document.getElementById('est-cust-po')?.value||'';
+    e.margin=margin; e.delivery=delivery; e.other=other; e.notes=notes;
+    e.totalQuote=totalQuote; e.unitPrice=unitPrice;
+    e.qty=lastEstimateResult.qty||0;
+    if(newStatus !== e.status){
+      e.status=newStatus;
+      e.statusHistory=e.statusHistory||[];
+      e.statusHistory.push({status:newStatus,by:curUser.name,date:todayISO()});
+    }
+    renderSavedEstimates();
+    saveDB();
+    toast(`${e.id} updated`,'success');
+    if(anyMatTBD && !e.rfqId) openEstSaveRFQModal();
+    return;
+  }
+
+  // Save as new
+  const status = anyMatTBD ? 'Waiting for material quote' : 'Ready to quote';
   savedEstimates.unshift({
     id:'EST-'+Date.now(),
     date:todayISO(),
@@ -8883,11 +8961,13 @@ function saveEstimate(){
     qty:lastEstimateResult.qty||0,
     spares:0,
   });
+  activeEstimateIdx = 0;
   renderSavedEstimates();
 
   if(anyMatTBD){
     openEstSaveRFQModal();
   } else {
+    saveDB();
     toast('Estimate saved — ready to quote customer','success');
   }
 }
@@ -9171,19 +9251,25 @@ function loadEstimate(i){
     }
   }
 
+  activeEstimateIdx = i;
+
+  // Sync estContext so values survive any immediate tab-switch
+  estContext.custCode  = e.custCode||'';
+  estContext.custPO    = e.custPO||'';
+  estContext.margin    = e.margin ?? 30;
+  estContext.delivery  = e.delivery ?? 0;
+  estContext.other     = e.other ?? 0;
+  estContext.notes     = e.notes||'';
+
   renderQuoteLines();
-  document.getElementById('est-margin').value = e.margin||30;
-  document.getElementById('est-delivery').value = e.delivery||0;
-  document.getElementById('est-other').value = e.other||0;
-  document.getElementById('est-notes').value = e.notes||'';
-  if(e.custCode){
-    const custSel=document.getElementById('est-customer');
-    if(custSel) custSel.value=e.custCode;
-  }
-  if(e.custPO){
-    const poEl=document.getElementById('est-cust-po');
-    if(poEl) poEl.value=e.custPO;
-  }
+  document.getElementById('est-margin').value = estContext.margin;
+  document.getElementById('est-delivery').value = estContext.delivery;
+  document.getElementById('est-other').value = estContext.other;
+  document.getElementById('est-notes').value = estContext.notes;
+  const custSel=document.getElementById('est-customer');
+  if(custSel) custSel.value=estContext.custCode;
+  const poEl=document.getElementById('est-cust-po');
+  if(poEl) poEl.value=estContext.custPO;
   runEstimateAll();
 
   if(matPricesFilled){
